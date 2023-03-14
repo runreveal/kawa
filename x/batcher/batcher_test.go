@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/runreveal/flow"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAckChu(t *testing.T) {
@@ -135,7 +135,7 @@ func TestBatcherErrors(t *testing.T) {
 		}(ctx, errc)
 
 		writeMsgs := []flow.Message[string]{
-			flow.Message[string]{Value: "hi"},
+			{Value: "hi"},
 		}
 
 		done := make(chan struct{})
@@ -171,7 +171,6 @@ func TestBatcherErrors(t *testing.T) {
 			case <-c.Done():
 				return c.Err()
 			}
-			return nil
 		}
 		bat := NewDestination[string](FlushFunc[string](ff), FlushLength(1))
 
@@ -185,11 +184,11 @@ func TestBatcherErrors(t *testing.T) {
 
 		writeMsgs := []flow.Message[string]{
 			// will be blocked flushing
-			flow.Message[string]{Value: "hi"},
+			{Value: "hi"},
 			// will be stuck waiting for flush slot
-			flow.Message[string]{Value: "hello"},
+			{Value: "hello"},
 			// will be stuck waiting to write to msgs in Send
-			flow.Message[string]{Value: "bonjour"},
+			{Value: "bonjour"},
 		}
 
 		done := make(chan struct{})
