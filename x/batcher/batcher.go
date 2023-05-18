@@ -18,9 +18,16 @@ func (ff FlushFunc[T]) Flush(c context.Context, msgs []flow.Message[T]) error {
 	return ff(c, msgs)
 }
 
-type msgAck[T any] struct {
-	msg flow.Message[T]
-	ack func()
+type Destination[T any] struct {
+	flusher   Flusher[T]
+	flushq    chan struct{}
+	flushlen  int
+	flushfreq time.Duration
+	flusherr  chan error
+	flushwg   *sync.WaitGroup
+
+	messages chan msgAck[T]
+	buf      []msgAck[T]
 }
 
 type OptFunc func(*Opts)
@@ -43,18 +50,10 @@ func FlushLength(size int) func(*Opts) {
 	}
 }
 
-type Destination[T any] struct {
-	flusher   Flusher[T]
-	flushq    chan struct{}
-	flushlen  int
-	flushfreq time.Duration
-	flusherr  chan error
-	flushwg   *sync.WaitGroup
-
-	messages chan msgAck[T]
-	buf      []msgAck[T]
-}
-
+// NewDestination instantiates a new batcher.  `Destination.Run` must be called
+// after calling `New` before events will be processed in this destination. Not
+// calling `Run` will likely end in a deadlock as the internal channel being
+// written to by `Send` will not be getting read.
 func NewDestination[T any](f Flusher[T], opts ...OptFunc) *Destination[T] {
 	cfg := Opts{
 		FlushLength:      100,
@@ -79,6 +78,16 @@ func NewDestination[T any](f Flusher[T], opts ...OptFunc) *Destination[T] {
 
 }
 
+type msgAck[T any] struct {
+	msg flow.Message[T]
+	ack func()
+}
+
+// Send satisfies the flow.Destination interface and accepts messages to be
+// buffered for flushing after the FlushLength limit is reached or the
+// FlushFrequency timer fires, whichever comes first.
+//
+// Messages will not be acknowledged until they have been flushed successfully.
 func (d *Destination[T]) Send(ctx context.Context, ack func(), msgs ...flow.Message[T]) error {
 
 	callMe := ackFn(ack, len(msgs))

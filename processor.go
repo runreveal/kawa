@@ -20,6 +20,8 @@ type Config[T1, T2 any] struct {
 	Handler     Handler[T1, T2]
 }
 
+// New instantiates a new Processor.  `Processor.Run` must be called after calling `New`
+// before events will be processed.
 func New[T1, T2 any](c Config[T1, T2], options ...func(*Processor[T1, T2])) (*Processor[T1, T2], error) {
 	if c.Source == nil || c.Destination == nil {
 		return nil, errors.New("both Source and Destination required")
@@ -62,11 +64,13 @@ func (p *Processor[T1, T2]) handle(ctx context.Context) error {
 	}
 }
 
-// Run is synchronous, and runs until either the ctx is canceled, or an
-// unrecoverable error is encountered.  If the context is canceled manually,
-// this will not return an error on clean shutdown.  Otherwise it will return
-// ctx.Err() (e.g. in the case of a timeout).  If an unrecoverable error is
-// returned from a stage, then it's wrapped and returned.
+// Run is a blocking call, and runs until either the ctx is canceled, or an
+// unrecoverable error is encountered. If any error is returned from a source,
+// destination or the handler func, then it's wrapped and returned. If the
+// passed-in context is canceled, this will not return the context.Canceled
+// error to indicate a clean shutdown was successful.  Run will return
+// ctx.Err() in other cases where context termination leads to shutdown of the
+// processor.
 func (p *Processor[T1, T2]) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Add(p.parallelism)
