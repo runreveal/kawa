@@ -50,6 +50,12 @@ func FlushLength(size int) func(*Opts) {
 	}
 }
 
+func FlushParallelism(n int) func(*Opts) {
+	return func(opts *Opts) {
+		opts.FlushParallelism = n
+	}
+}
+
 // NewDestination instantiates a new batcher.  `Destination.Run` must be called
 // after calling `New` before events will be processed in this destination. Not
 // calling `Run` will likely end in a deadlock as the internal channel being
@@ -64,6 +70,8 @@ func NewDestination[T any](f Flusher[T], opts ...OptFunc) *Destination[T] {
 	for _, o := range opts {
 		o(&cfg)
 	}
+
+	// TODO: validate here
 
 	return &Destination[T]{
 		flushlen:  cfg.FlushLength,

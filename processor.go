@@ -20,9 +20,21 @@ type Config[T1, T2 any] struct {
 	Handler     Handler[T1, T2]
 }
 
+type Option func(*Options)
+
+type Options struct {
+	Parallelism int
+}
+
+func Parallelism(n int) func(*Options) {
+	return func(o *Options) {
+		o.Parallelism = n
+	}
+}
+
 // New instantiates a new Processor.  `Processor.Run` must be called after calling `New`
 // before events will be processed.
-func New[T1, T2 any](c Config[T1, T2], options ...func(*Processor[T1, T2])) (*Processor[T1, T2], error) {
+func New[T1, T2 any](c Config[T1, T2], opts ...Option) (*Processor[T1, T2], error) {
 	if c.Source == nil || c.Destination == nil {
 		return nil, errors.New("both Source and Destination required")
 	}
@@ -35,9 +47,12 @@ func New[T1, T2 any](c Config[T1, T2], options ...func(*Processor[T1, T2])) (*Pr
 		handler: c.Handler,
 	}
 
-	for _, o := range options {
-		o(p)
+	var op Options
+	for _, o := range opts {
+		o(&op)
 	}
+
+	p.parallelism = op.Parallelism
 
 	if p.parallelism < 1 {
 		p.parallelism = 1
