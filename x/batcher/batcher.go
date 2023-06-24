@@ -89,6 +89,9 @@ type msgAck[T any] struct {
 //
 // Messages will not be acknowledged until they have been flushed successfully.
 func (d *Destination[T]) Send(ctx context.Context, ack func(), msgs ...flow.Message[T]) error {
+	if len(msgs) < 1 {
+		return nil
+	}
 
 	callMe := ackFn(ack, len(msgs))
 
