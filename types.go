@@ -108,7 +108,15 @@ func (df DestinationFunc[T]) Send(ctx context.Context, ack func(), msgs ...Messa
 // Returning an empty slice and a nil error indicates that the message passed
 // in was processed successfully, no output was necessary, and therefore should
 // be acknowledged by the processor as having been processed successfully.
-type Handler[T1, T2 any] func(context.Context, Message[T1]) ([]Message[T2], error)
+type Handler[T1, T2 any] interface {
+	Handle(context.Context, Message[T1]) ([]Message[T2], error)
+}
+
+type HandlerFunc[T1, T2 any] func(context.Context, Message[T1]) ([]Message[T2], error)
+
+func (hf HandlerFunc[T1, T2]) Handle(ctx context.Context, msg Message[T1]) ([]Message[T2], error) {
+	return hf(ctx, msg)
+}
 
 // Pipe is a handler which simply passes a message through without modification.
 func Pipe[T any](ctx context.Context, msg Message[T]) ([]Message[T], error) {

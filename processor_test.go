@@ -29,14 +29,15 @@ func TestProcessor(t *testing.T) {
 		MsgC: outC,
 	}
 
-	countMessages := func(c context.Context, m flow.Message[*BinString]) ([]flow.Message[*BinString], error) {
-		return []flow.Message[*BinString]{m}, nil
-	}
+	countMessages := flow.HandlerFunc[*BinString, *BinString](
+		func(c context.Context, m flow.Message[*BinString]) ([]flow.Message[*BinString], error) {
+			return []flow.Message[*BinString]{m}, nil
+		})
 
 	p, _ := flow.New[*BinString, *BinString](flow.Config[*BinString, *BinString]{
 		Source:      memSrc,
 		Destination: memDst,
-		Handler:     countMessages,
+		Handler:     (countMessages),
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())

@@ -68,7 +68,7 @@ func (p *Processor[T1, T2]) handle(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "source")
 		}
-		msgs, err := p.handler(ctx, msg)
+		msgs, err := p.handler.Handle(ctx, msg)
 		if err != nil {
 			return errors.Wrap(err, "handle")
 		}
