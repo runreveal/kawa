@@ -118,10 +118,16 @@ func (hf HandlerFunc[T1, T2]) Handle(ctx context.Context, msg Message[T1]) ([]Me
 	return hf(ctx, msg)
 }
 
-// Pipe is a handler which simply passes a message through without modification.
-func Pipe[T any](ctx context.Context, msg Message[T]) ([]Message[T], error) {
+type Pipe[T any] struct{}
+
+func (p Pipe[T]) Handle(ctx context.Context, msg Message[T]) ([]Message[T], error) {
 	return []Message[T]{msg}, nil
 }
+
+// // Pipe is a handler which simply passes a message through without modification.
+// func Pipe[T any](ctx context.Context, msg Message[T]) ([]Message[T], error) {
+// 	return []Message[T]{msg}, nil
+// }
 
 type DeserFunc[T any] func([]byte) (T, error)
 
