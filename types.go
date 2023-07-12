@@ -118,9 +118,13 @@ func (hf HandlerFunc[T1, T2]) Handle(ctx context.Context, msg Message[T1]) ([]Me
 	return hf(ctx, msg)
 }
 
-type Pipe[T any] struct{}
+func Pipe[T any]() Handler[T, T] {
+	return pipe[T]{}
+}
 
-func (p Pipe[T]) Handle(ctx context.Context, msg Message[T]) ([]Message[T], error) {
+type pipe[T any] struct{}
+
+func (p pipe[T]) Handle(ctx context.Context, msg Message[T]) ([]Message[T], error) {
 	return []Message[T]{msg}, nil
 }
 
