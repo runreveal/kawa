@@ -37,7 +37,7 @@ func NewMultiSource[T any](sources []flow.Source[T]) MultiSource[T] {
 func (ms MultiSource[T]) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 
-	errc := make(chan error)
+	errc := make(chan error, len(ms.wrapped))
 
 	for _, src := range ms.wrapped {
 		wg.Add(1)
@@ -46,8 +46,11 @@ func (ms MultiSource[T]) Run(ctx context.Context) error {
 			for {
 				msg, ack, err := src.Recv(ctx)
 				if err != nil {
-					errc <- err
-					return
+					select {
+					case errc <- err:
+					case <-ctx.Done():
+						return
+					}
 				}
 				select {
 				case ms.msgAckC <- msgAck[T]{msg: msg, ack: ack}:
