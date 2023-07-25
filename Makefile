@@ -1,21 +1,34 @@
-VERSION := $(shell git describe --tags --always --dirty="-dev")
+VERSION := $(shell git describe --tags --always --dirty="_dev")
 LDFLAGS := -ldflags='-X "main.version=$(VERSION)"'
-# GCFLAGS := -gcflags='-G=3'
-GO = go
-Q = @
 
-GOTESTFLAGS = -race $(GCFLAGS)
-ifndef Q
-	GOTESTFLAGS += -v
-endif
-
+GOTESTFLAGS = -race
 GOTAGS = testing
 
+GO ?= $(shell which go)
+
+export GOEXPERIMENT=nocoverageredesign
+
 .PHONY: test
-test: vet
-	$Q$(GO) test -vet=off -tags='$(GOTAGS)' $(GOTESTFLAGS) -coverpkg="./..." -coverprofile=.coverprofile ./...
-	$Qgrep -v 'cmd' < .coverprofile > .covprof && mv .covprof .coverprofile
-	$Q$(GO) tool cover -func=.coverprofile
+test: compose
+	$(GO) test -vet=off -tags='$(GOTAGS)' $(GOTESTFLAGS) -coverpkg="./..." -coverprofile=.coverprofile ./...
+	grep -v 'cmd' < .coverprofile > .covprof && mv .covprof .coverprofile
+	$(GO) tool cover -func=.coverprofile
+
+.PHONY: coverage
+coverage:
+	$(GO) tool cover -html=.coverprofile
+
+.PHONY: version
+version:
+	@echo $(VERSION)
+
+.PHONY: dist
+dist:
+	goreleaser release --config .goreleaser.public.yaml --clean --snapshot
+
+.PHONY: compose
+compose:
+	docker-compose up -d
 
 .PHONY: lint
 lint: $(GOPATH)/bin/golangci-lint
@@ -24,19 +37,17 @@ lint: $(GOPATH)/bin/golangci-lint
 $(GOPATH)/bin/golangci-lint:
 	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
 
-.PHONY: build
-build: vet
-	$Q$(GO) build $(LDFLAGS) $(GCFLAGS) -o ./build/$(NAME) ./...
-
-.PHONY: vet
-vet:
-	$Q$(GO) vet ./...
+$(GOPATH)/bin/golines:
+	$(GO) install github.com/segmentio/golines@latest
 
 .PHONY: fmtcheck
-fmtchk:
-	$Qexit $(shell goimports -l . | grep -v '^vendor' | wc -l)
+fmtcheck: $(GOPATH)/bin/golines
+	exit $(shell golines -m 128 -l . | wc -l)
 
 .PHONY: fmtfix
-fmtfix:
-	$Qgoimports -w $(shell find . -iname '*.go' | grep -v vendor)
+fmtfix: $(GOPATH)/bin/golines
+	golines -m 128 -w .
 
+.PHONY: clean
+clean:
+	rm -rf dist
