@@ -1,0 +1,11 @@
+changelog:
+  categories:
+    - title: 🌱 What's new!
+      labels:
+        - feature
+    - title: 🐆 Optimizations
+      labels:
+        - performance
+    - title: 🛠️ Bugfixes
+      labels:
+        - bug

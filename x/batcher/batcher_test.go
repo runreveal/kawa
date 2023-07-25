@@ -54,9 +54,9 @@ func TestBatcher(t *testing.T) {
 	}(ctx, errc)
 
 	writeMsgs := []flow.Message[string]{
-		flow.Message[string]{Value: "hi"},
-		flow.Message[string]{Value: "hello"},
-		flow.Message[string]{Value: "bonjour"},
+		{Value: "hi"},
+		{Value: "hello"},
+		{Value: "bonjour"},
 	}
 
 	done := make(chan struct{})
@@ -97,8 +97,8 @@ func TestBatchFlushTimeout(t *testing.T) {
 	}(ctx, errc)
 
 	writeMsgs := []flow.Message[string]{
-		flow.Message[string]{Value: "hi"},
-		flow.Message[string]{Value: "hello"},
+		{Value: "hi"},
+		{Value: "hello"},
 	}
 
 	done := make(chan struct{})
@@ -152,25 +152,20 @@ func TestBatcherErrors(t *testing.T) {
 
 	t.Run("cancellation works", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-
 		go func(c context.Context, ec chan error) {
 			ec <- bat.Run(c)
 		}(ctx, errc)
 
 		cancel()
-		select {
-		case err := <-errc:
-			assert.EqualError(t, err, "context canceled")
-		}
+		err := <-errc
+		assert.EqualError(t, err, "context canceled")
 	})
 
 	t.Run("cancellation works in deadlock", func(t *testing.T) {
 
 		var ff = func(c context.Context, msgs []flow.Message[string]) error {
-			select {
-			case <-c.Done():
-				return c.Err()
-			}
+			<-c.Done()
+			return c.Err()
 		}
 		bat := NewDestination[string](FlushFunc[string](ff), FlushLength(1))
 
@@ -196,9 +191,7 @@ func TestBatcherErrors(t *testing.T) {
 		assert.NoError(t, err)
 
 		cancel()
-		select {
-		case err := <-errc:
-			assert.EqualError(t, err, "context canceled")
-		}
+		err = <-errc
+		assert.EqualError(t, err, "context canceled")
 	})
 }

@@ -1,0 +1,42 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: flowd
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - '*'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  build:
+    runs-on:
+      labels: OSS-Runner
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: "1.20"
+        cache: true
+
+    - name: Start containers
+      run: docker-compose -f "docker-compose.yml" up -d
+
+    - name: Test
+      run: make test
+
+    - name: Fmtcheck
+      run: make fmtcheck
+
+    - name: Lint
+      run: make lint
+
+    - name: Stop containers
+      run: docker-compose -f "docker-compose.yml" down -v
+      if: always()
