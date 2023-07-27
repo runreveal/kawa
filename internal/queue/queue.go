@@ -4,30 +4,30 @@ import (
 	"context"
 	"errors"
 
-	"github.com/runreveal/chta"
-	"github.com/runreveal/chta/internal/types"
-	"github.com/runreveal/chta/x/multi"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/internal/types"
+	"github.com/runreveal/kawa/x/multi"
 	"github.com/runreveal/lib/await"
 	"golang.org/x/exp/slog"
 )
 
 type Option func(*Queue)
 
-func WithSources(srcs []chta.Source[types.Event]) Option {
+func WithSources(srcs []kawa.Source[types.Event]) Option {
 	return func(q *Queue) {
 		q.Sources = srcs
 	}
 }
 
-func WithDestinations(dsts []chta.Destination[types.Event]) Option {
+func WithDestinations(dsts []kawa.Destination[types.Event]) Option {
 	return func(q *Queue) {
 		q.Destinations = dsts
 	}
 }
 
 type Queue struct {
-	Sources      []chta.Source[types.Event]
-	Destinations []chta.Destination[types.Event]
+	Sources      []kawa.Source[types.Event]
+	Destinations []kawa.Destination[types.Event]
 }
 
 var (
@@ -84,13 +84,13 @@ func (q *Queue) Run(ctx context.Context) error {
 	multiSrc := multi.NewMultiSource(q.Sources)
 	w.Add(multiSrc.Run)
 
-	p, err := chta.New(chta.Config[types.Event, types.Event]{
+	p, err := kawa.New(kawa.Config[types.Event, types.Event]{
 		Source:      multiSrc,
 		Destination: multiDst,
-		Handler:     chta.Pipe[types.Event](),
+		Handler:     kawa.Pipe[types.Event](),
 		// NOTE(alan): don't increase parallelism on this processor until we've
 		// verified thread safety thread-safe story.
-	}, chta.Parallelism(1))
+	}, kawa.Parallelism(1))
 	if err != nil {
 		return err
 	}

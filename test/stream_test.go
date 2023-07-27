@@ -1,4 +1,4 @@
-package chta
+package kawa
 
 import (
 	"context"
@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/runreveal/chta"
-	"github.com/runreveal/chta/x/memory"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/x/memory"
 )
 
 type BinString string
@@ -31,7 +31,7 @@ func TestSmokeHappyPath(t *testing.T) {
 	go func() {
 		for i := 0; i < 10; i++ {
 			x := BinString(fmt.Sprintf("hi-%d", i))
-			err := dst.Send(context.TODO(), nil, chta.Message[*BinString]{Value: &x})
+			err := dst.Send(context.TODO(), nil, kawa.Message[*BinString]{Value: &x})
 			if err != nil {
 				t.Log(err)
 			}
@@ -64,7 +64,7 @@ func TestWow(t *testing.T) {
 	go func() {
 		for i := 0; i < 10; i++ {
 			x := BinString(fmt.Sprintf("wow-%d", i))
-			err := dst.Send(context.TODO(), nil, chta.Message[*BinString]{Value: &x})
+			err := dst.Send(context.TODO(), nil, kawa.Message[*BinString]{Value: &x})
 			if err != nil {
 				t.Log(err)
 			}
@@ -94,11 +94,11 @@ func NewMemSource(in <-chan *BinString) MemorySource {
 	}
 }
 
-func (ms MemorySource) Recv(ctx context.Context) (chta.Message[*BinString], func(), error) {
+func (ms MemorySource) Recv(ctx context.Context) (kawa.Message[*BinString], func(), error) {
 	select {
 	case <-ctx.Done():
-		return chta.Message[*BinString]{}, nil, ctx.Err()
+		return kawa.Message[*BinString]{}, nil, ctx.Err()
 	case v := <-ms.MsgC:
-		return chta.Message[*BinString]{Value: v}, nil, nil
+		return kawa.Message[*BinString]{Value: v}, nil, nil
 	}
 }

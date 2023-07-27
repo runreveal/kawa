@@ -7,9 +7,9 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/runreveal/chta"
-	"github.com/runreveal/chta/internal/queue"
-	"github.com/runreveal/chta/internal/types"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/internal/queue"
+	"github.com/runreveal/kawa/internal/types"
 	"github.com/runreveal/lib/loader"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
@@ -75,8 +75,8 @@ variety of destinations.`,
 }
 
 type Config struct {
-	Sources      []loader.Loader[chta.Source[types.Event]]      `json:"sources"`
-	Destinations []loader.Loader[chta.Destination[types.Event]] `json:"destinations"`
+	Sources      []loader.Loader[kawa.Source[types.Event]]      `json:"sources"`
+	Destinations []loader.Loader[kawa.Destination[types.Event]] `json:"destinations"`
 
 	PProfAddr string `json:"pprof"`
 }
@@ -103,7 +103,7 @@ func NewRunCommand() *cobra.Command {
 			slog.Info(fmt.Sprintf("config: %+v", config))
 
 			ctx := context.Background()
-			srcs := []chta.Source[types.Event]{}
+			srcs := []kawa.Source[types.Event]{}
 			for _, v := range config.Sources {
 				src, err := v.Configure()
 				if err != nil {
@@ -112,7 +112,7 @@ func NewRunCommand() *cobra.Command {
 				srcs = append(srcs, src)
 			}
 
-			dsts := []chta.Destination[types.Event]{}
+			dsts := []kawa.Destination[types.Event]{}
 			for _, v := range config.Destinations {
 				dst, err := v.Configure()
 				if err != nil {

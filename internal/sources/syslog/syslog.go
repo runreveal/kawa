@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/runreveal/chta"
-	"github.com/runreveal/chta/internal/types"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/internal/types"
 	"golang.org/x/exp/slog"
 	"gopkg.in/mcuadros/go-syslog.v2"
 )
@@ -58,7 +58,7 @@ func (s *SyslogSource) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s *SyslogSource) Recv(ctx context.Context) (chta.Message[types.Event], func(), error) {
+func (s *SyslogSource) Recv(ctx context.Context) (kawa.Message[types.Event], func(), error) {
 	select {
 	case logParts := <-s.syslogPartsC:
 		if content, ok := logParts["content"]; ok {
@@ -71,7 +71,7 @@ func (s *SyslogSource) Recv(ctx context.Context) (chta.Message[types.Event], fun
 				}
 			}
 
-			msg := chta.Message[types.Event]{
+			msg := kawa.Message[types.Event]{
 				Value: types.Event{
 					Timestamp:  ts,
 					SourceType: "syslog",
@@ -83,7 +83,7 @@ func (s *SyslogSource) Recv(ctx context.Context) (chta.Message[types.Event], fun
 			fmt.Println("warn: found syslog without 'content' key")
 		}
 	case <-ctx.Done():
-		return chta.Message[types.Event]{}, nil, ctx.Err()
+		return kawa.Message[types.Event]{}, nil, ctx.Err()
 	}
 	panic("unreachable!")
 }
