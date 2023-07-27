@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/runreveal/chta"
+	"github.com/runreveal/kawa"
 )
 
 type MemorySource[T any] struct {
@@ -17,12 +17,12 @@ func NewMemSource[T any](in <-chan T) MemorySource[T] {
 	}
 }
 
-func (ms MemorySource[T]) Recv(ctx context.Context) (chta.Message[T], func(), error) {
+func (ms MemorySource[T]) Recv(ctx context.Context) (kawa.Message[T], func(), error) {
 	select {
 	case <-ctx.Done():
-		return chta.Message[T]{}, nil, ctx.Err()
+		return kawa.Message[T]{}, nil, ctx.Err()
 	case v := <-ms.MsgC:
-		return chta.Message[T]{Value: v}, nil, nil
+		return kawa.Message[T]{Value: v}, nil, nil
 	}
 }
 
@@ -36,7 +36,7 @@ func NewMemDestination[T any](out chan<- T) MemoryDestination[T] {
 	}
 }
 
-func (ms MemoryDestination[T]) Send(ctx context.Context, ack func(), msgs ...chta.Message[T]) error {
+func (ms MemoryDestination[T]) Send(ctx context.Context, ack func(), msgs ...kawa.Message[T]) error {
 	for _, msg := range msgs {
 		select {
 		case <-ctx.Done():

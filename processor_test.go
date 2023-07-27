@@ -1,12 +1,12 @@
-package chta_test
+package kawa_test
 
 import (
 	"context"
 	"fmt"
 	"testing"
 
-	"github.com/runreveal/chta"
-	"github.com/runreveal/chta/x/memory"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/x/memory"
 )
 
 type BinString string
@@ -29,12 +29,12 @@ func TestProcessor(t *testing.T) {
 		MsgC: outC,
 	}
 
-	countMessages := chta.HandlerFunc[*BinString, *BinString](
-		func(c context.Context, m chta.Message[*BinString]) ([]chta.Message[*BinString], error) {
-			return []chta.Message[*BinString]{m}, nil
+	countMessages := kawa.HandlerFunc[*BinString, *BinString](
+		func(c context.Context, m kawa.Message[*BinString]) ([]kawa.Message[*BinString], error) {
+			return []kawa.Message[*BinString]{m}, nil
 		})
 
-	p, _ := chta.New[*BinString, *BinString](chta.Config[*BinString, *BinString]{
+	p, _ := kawa.New[*BinString, *BinString](kawa.Config[*BinString, *BinString]{
 		Source:      memSrc,
 		Destination: memDst,
 		Handler:     (countMessages),

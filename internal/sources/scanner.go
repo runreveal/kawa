@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/runreveal/chta"
-	"github.com/runreveal/chta/internal/types"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/internal/types"
 )
 
 type Scanner struct {
@@ -18,7 +18,7 @@ type Scanner struct {
 }
 
 type msgAck struct {
-	msg chta.Message[types.Event]
+	msg kawa.Message[types.Event]
 	ack func()
 }
 
@@ -45,7 +45,7 @@ func (s *Scanner) recvLoop(ctx context.Context) error {
 		wg.Add(1)
 		select {
 		case s.msgC <- msgAck{
-			msg: chta.Message[types.Event]{
+			msg: kawa.Message[types.Event]{
 				Value: types.Event{
 					Timestamp:  time.Now(),
 					SourceType: "reader",
@@ -79,10 +79,10 @@ func (s *Scanner) recvLoop(ctx context.Context) error {
 	return nil
 }
 
-func (s *Scanner) Recv(ctx context.Context) (chta.Message[types.Event], func(), error) {
+func (s *Scanner) Recv(ctx context.Context) (kawa.Message[types.Event], func(), error) {
 	select {
 	case <-ctx.Done():
-		return chta.Message[types.Event]{}, nil, ctx.Err()
+		return kawa.Message[types.Event]{}, nil, ctx.Err()
 	case pass := <-s.msgC:
 		return pass.msg, pass.ack, nil
 	}

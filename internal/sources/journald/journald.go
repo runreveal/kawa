@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/runreveal/chta"
-	"github.com/runreveal/chta/internal/types"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/internal/types"
 	"golang.org/x/exp/slog"
 )
 
@@ -24,7 +24,7 @@ type Journald struct {
 }
 
 type msgAck struct {
-	msg chta.Message[types.Event]
+	msg kawa.Message[types.Event]
 	ack func()
 }
 
@@ -40,7 +40,7 @@ func (s *Journald) Run(ctx context.Context) error {
 
 func (s *Journald) recvLoop(ctx context.Context) error {
 	// Open file to check and save high watermark
-	hwmFile, err := os.OpenFile("/tmp/chtad-journald-hwm", os.O_RDWR|os.O_CREATE, os.FileMode(0644))
+	hwmFile, err := os.OpenFile("/tmp/kawad-journald-hwm", os.O_RDWR|os.O_CREATE, os.FileMode(0644))
 	if err != nil {
 		return err
 	}
@@ -117,7 +117,7 @@ func (s *Journald) recvLoop(ctx context.Context) error {
 		wg.Add(1)
 		select {
 		case s.msgC <- msgAck{
-			msg: chta.Message[types.Event]{
+			msg: kawa.Message[types.Event]{
 				Value: types.Event{
 					Timestamp:  ts,
 					SourceType: "journald",
@@ -150,10 +150,10 @@ func (s *Journald) recvLoop(ctx context.Context) error {
 	return cmd.Wait()
 }
 
-func (s *Journald) Recv(ctx context.Context) (chta.Message[types.Event], func(), error) {
+func (s *Journald) Recv(ctx context.Context) (kawa.Message[types.Event], func(), error) {
 	select {
 	case <-ctx.Done():
-		return chta.Message[types.Event]{}, nil, ctx.Err()
+		return kawa.Message[types.Event]{}, nil, ctx.Err()
 	case pass := <-s.msgC:
 		return pass.msg, pass.ack, nil
 	}

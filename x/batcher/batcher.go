@@ -5,16 +5,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/runreveal/chta"
+	"github.com/runreveal/kawa"
 )
 
 type Flusher[T any] interface {
-	Flush(context.Context, []chta.Message[T]) error
+	Flush(context.Context, []kawa.Message[T]) error
 }
 
-type FlushFunc[T any] func(context.Context, []chta.Message[T]) error
+type FlushFunc[T any] func(context.Context, []kawa.Message[T]) error
 
-func (ff FlushFunc[T]) Flush(c context.Context, msgs []chta.Message[T]) error {
+func (ff FlushFunc[T]) Flush(c context.Context, msgs []kawa.Message[T]) error {
 	return ff(c, msgs)
 }
 
@@ -87,16 +87,16 @@ func NewDestination[T any](f Flusher[T], opts ...OptFunc) *Destination[T] {
 }
 
 type msgAck[T any] struct {
-	msg chta.Message[T]
+	msg kawa.Message[T]
 	ack func()
 }
 
-// Send satisfies the chta.Destination interface and accepts messages to be
+// Send satisfies the kawa.Destination interface and accepts messages to be
 // buffered for flushing after the FlushLength limit is reached or the
 // FlushFrequency timer fires, whichever comes first.
 //
 // Messages will not be acknowledged until they have been flushed successfully.
-func (d *Destination[T]) Send(ctx context.Context, ack func(), msgs ...chta.Message[T]) error {
+func (d *Destination[T]) Send(ctx context.Context, ack func(), msgs ...kawa.Message[T]) error {
 	if len(msgs) < 1 {
 		return nil
 	}
@@ -184,7 +184,7 @@ func (d *Destination[T]) flush(ctx context.Context) error {
 }
 
 func (d *Destination[T]) doflush(ctx context.Context, msgs []msgAck[T]) {
-	chtaMsgs := make([]chta.Message[T], 0, len(msgs))
+	chtaMsgs := make([]kawa.Message[T], 0, len(msgs))
 	for _, m := range msgs {
 		chtaMsgs = append(chtaMsgs, m.msg)
 	}

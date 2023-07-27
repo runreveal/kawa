@@ -7,9 +7,9 @@ before:
     # you may remove this if you don't need go generate
     # - go generate ./...
 builds:
-  - main: ./cmd/cheetahd
-    id: cheetahd
-    binary: cheetahd
+  - main: ./cmd/kawa
+    id: kawa
+    binary: kawa
     goos:
       - linux
       - darwin
@@ -17,16 +17,16 @@ builds:
 
 archives:
   - format: tar.gz
-    id: cheetahd
+    id: kawa
     # this name template makes the OS and Arch compatible with the results of uname.
     name_template: >-
-      cheetahd-
+      kawa-
       {{- .Os }}-
       {{- if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     # use zip for windows archives
-    builds: [cheetahd]
+    builds: [kawa]
     format_overrides:
     - goos: windows
       format: zip
@@ -44,7 +44,7 @@ release:
   # Default is extracted from the origin remote URL or empty if its private hosted.
   github:
     owner: runreveal
-    name: cheetah
+    name: kawa
 
 checksum:
   name_template: 'checksums.txt'

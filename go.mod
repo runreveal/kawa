@@ -1,4 +1,4 @@
-module github.com/runreveal/chta
+module github.com/runreveal/kawa
 
 go 1.18
 
