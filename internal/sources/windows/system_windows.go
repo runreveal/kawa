@@ -1,6 +1,7 @@
 package windows
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"syscall"
@@ -51,14 +52,10 @@ var (
 	procEvtClose     = modwevtapi.NewProc("EvtClose")
 )
 
-// EventCallback defines the function
-// layout required to receive events
-type EventCallback func(event *Event)
-
 // EventSubscription is a subscription to
 // Windows Events, it defines details about the
 // subscription including the channel and query
-type EventSubscription struct {
+type eventSubscription struct {
 	Channel         string
 	Query           string
 	SubscribeMethod int
@@ -71,7 +68,7 @@ type EventSubscription struct {
 // Create will setup an event subscription in the
 // windows kernel with the provided channel and
 // event query
-func (evtSub *EventSubscription) Create() error {
+func (evtSub *eventSubscription) create() error {
 	if evtSub.winAPIHandle != 0 {
 		return fmt.Errorf("windows_events: subscription already created in kernel")
 	}
@@ -108,7 +105,7 @@ func (evtSub *EventSubscription) Create() error {
 // Close tells the windows kernel to let go
 // of the event subscription handle as we
 // are now done with it
-func (evtSub *EventSubscription) Close() error {
+func (evtSub *eventSubscription) close() error {
 	if evtSub.winAPIHandle == 0 {
 		return fmt.Errorf("windows_events: no subscription to close")
 	}
@@ -126,7 +123,7 @@ func (evtSub *EventSubscription) Close() error {
 // received. It will query the kernel to get the event rendered
 // as a XML string, the XML string is then unmarshaled to an
 // `Event` and the custom callback invoked
-func (evtSub *EventSubscription) winAPICallback(action, userContext, event uintptr) uintptr {
+func (evtSub *eventSubscription) winAPICallback(action, userContext, event uintptr) uintptr {
 	switch action {
 	case evtSubscribeActionError:
 		evtSub.Errors <- fmt.Errorf("windows_events: encountered error during callback: Win32 Error %x", uint16(event))
@@ -141,19 +138,26 @@ func (evtSub *EventSubscription) winAPICallback(action, userContext, event uintp
 		if returnCode == 0 {
 			evtSub.Errors <- fmt.Errorf("windows_event: failed to render event data: %s", err)
 		} else {
-			dataParsed := new(Event)
-			err := xml.Unmarshal([]byte(windows.UTF16ToString(renderSpace)), dataParsed)
+			dataUTF8 := windows.UTF16ToString(renderSpace)
+			xEvt := xmlEvent{}
+			err := xml.Unmarshal([]byte(dataUTF8), &xEvt)
 
 			if err != nil {
 				evtSub.Errors <- fmt.Errorf("windows_event: failed to unmarshal event xml: %s", err)
 			} else {
 				// take dataParsed and convert back to json object for sending to server
+				jsonEvt := xEvt.ToJSONEvent()
+				jsonByte, err := json.Marshal(jsonEvt)
+				if err != nil {
+					evtSub.Errors <- fmt.Errorf("windows_event: failed to marshal event json: %s", err)
+					break
+				}
 				msg := msgAck{
 					msg: flow.Message[types.Event]{
 						Value: types.Event{
-							Timestamp:  dataParsed.System.TimeCreated.SystemTime,
-							SourceType: dataParsed.System.Channel,
-							RawLog:     []byte(windows.UTF16ToString(renderSpace)),
+							Timestamp:  xEvt.System.TimeCreated.SystemTime,
+							SourceType: xEvt.System.Channel,
+							RawLog:     jsonByte,
 						},
 					},
 					ack: nil,
