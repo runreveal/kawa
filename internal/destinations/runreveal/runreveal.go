@@ -57,7 +57,7 @@ func (r *RunReveal) Run(ctx context.Context) error {
 
 	r.reqConf = func(rb *requests.Builder) {
 		rb.
-			UserAgent("cheetahd").
+			UserAgent("kawa").
 			Accept("application/json").
 			BaseURL(r.webhookURL).
 			Header("Content-Type", "application/json")

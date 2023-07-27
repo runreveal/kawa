@@ -29,7 +29,7 @@ type Attributes interface {
 	Unwrap() Attributes
 }
 
-// Source defines the abstraction for which chta consumes or receives messages
+// Source defines the abstraction for which kawa consumes or receives messages
 // from an external entity.  Most notable implementations are queues (Kafka,
 // RabbitMQ, Redis), but anything which is message oriented could be made into
 // a source (e.g. a newline-delimited-JSON file could conceivably be a source).

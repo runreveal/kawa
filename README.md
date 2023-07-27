@@ -1,11 +1,8 @@
-# cheetah
+# kawa
 
-cheetah is an opinionated framework for scalable, reliable stream processing.
+kawa is an opinionated framework for scalable, reliable stream processing.
 
-# cheetahd
-
-cheetahd is a daemon for collecting system logs and metrics which makes is powered
-by cheetah.
+kawa also provides a daemon for collecting system logs and metrics.
 
 # Installation
 
@@ -18,7 +15,7 @@ working set of APIs, interfaces and data models.
 
 # TODO
 
-- Ensure that consumers of cheetah aren't subject to all the dependencies of cheetahd.
+- Ensure that consumers of kawa aren't subject to all the dependencies of kawad.
 - Consider breaking apart the library from the daemon.
 
 # Source Wishlist

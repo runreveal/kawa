@@ -184,12 +184,12 @@ func (d *Destination[T]) flush(ctx context.Context) error {
 }
 
 func (d *Destination[T]) doflush(ctx context.Context, msgs []msgAck[T]) {
-	chtaMsgs := make([]kawa.Message[T], 0, len(msgs))
+	kawaMsgs := make([]kawa.Message[T], 0, len(msgs))
 	for _, m := range msgs {
-		chtaMsgs = append(chtaMsgs, m.msg)
+		kawaMsgs = append(kawaMsgs, m.msg)
 	}
 
-	err := d.flusher.Flush(ctx, chtaMsgs)
+	err := d.flusher.Flush(ctx, kawaMsgs)
 	if err != nil {
 		d.flusherr <- err
 		d.flushwg.Done()

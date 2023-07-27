@@ -29,7 +29,7 @@ func init() {
 		return a
 	}
 	level := slog.LevelInfo
-	if _, ok := os.LookupEnv("CHEETAH_DEBUG"); ok {
+	if _, ok := os.LookupEnv("KAWA_DEBUG"); ok {
 		level = slog.LevelDebug
 	}
 
@@ -49,8 +49,8 @@ func init() {
 func main() {
 	slog.Info(fmt.Sprintf("starting %s", path.Base(os.Args[0])), "version", version)
 	rootCmd := NewRootCommand()
-	cheetahdCmd := NewRunCommand()
-	rootCmd.AddCommand(cheetahdCmd)
+	kawaCmd := NewRunCommand()
+	rootCmd.AddCommand(kawaCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		slog.Error(fmt.Sprintf("%+v", err))
@@ -62,8 +62,8 @@ func main() {
 func NewRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   path.Base(os.Args[0]),
-		Short: `cheetahd is an all-in-one event ingestion daemon`,
-		Long: `cheetahd is an all-in-one event ingestion daemon.
+		Short: `kawa is an all-in-one event ingestion daemon`,
+		Long: `kawa is an all-in-one event ingestion daemon.
 It is designed to be a single binary that can be deployed to a server and	
 configured to receive events from a variety of sources and send them to a 
 variety of destinations.`,
