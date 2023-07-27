@@ -109,7 +109,11 @@ func (xe *xmlEvent) ToMap() *map[string]interface{} {
 func (xe *xmlEvent) ToJSONEvent() *jsonEvent {
 	je := newJSONEvent()
 	for _, d := range xe.EventData.Data {
-		je.Event.EventData[d.Name] = d.Value
+		if d.Name != "" {
+			je.Event.EventDataMap[d.Name] = d.Value
+		} else {
+			je.Event.EventData = append(je.Event.EventData, d.Value)
+		}
 	}
 	je.Event.UserData = xe.UserData
 	// System
@@ -134,9 +138,10 @@ func (xe *xmlEvent) ToJSONEvent() *jsonEvent {
 
 type jsonEvent struct {
 	Event struct {
-		EventData map[string]string      `xml:"EventData" json:"eventData,omitempty"`
-		UserData  map[string]interface{} `json:"userData,omitempty"`
-		System    struct {
+		EventDataMap map[string]string      `xml:"EventData" json:"eventDataMap,omitempty"`
+		EventData    []string               `json:"eventData,omitempty"`
+		UserData     map[string]interface{} `json:"userData,omitempty"`
+		System       struct {
 			Provider struct {
 				Name string `xml:"Name,attr" json:"name"`
 				Guid string `xml:"Guid,attr" json:"guid"`
@@ -168,6 +173,6 @@ type jsonEvent struct {
 
 // NewJSONEvent creates a new JSONEvent structure
 func newJSONEvent() (je jsonEvent) {
-	je.Event.EventData = make(map[string]string)
+	je.Event.EventDataMap = make(map[string]string)
 	return je
 }

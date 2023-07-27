@@ -12,9 +12,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// Credit to https://github.com/KatelynHaworth who created this code for reading the event log.
-// Code was changed to work with flowd.
-
 const (
 	// EvtSubscribeToFutureEvents instructs the
 	// subscription to only receive events that occur

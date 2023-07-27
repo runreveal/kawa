@@ -3,6 +3,7 @@ package windows
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/runreveal/flow"
 	"github.com/runreveal/flow/internal/types"
@@ -62,23 +63,21 @@ func (s *EventLogSource) recvLoop(ctx context.Context) error {
 	defer s.subscription.close()
 	defer close(s.subscription.Errors)
 
-	done := make(chan struct{})
 	go func() {
 		for err := range s.subscription.Errors {
 			slog.Error(fmt.Sprintf("%+v", err))
 		}
-		close(done)
 	}()
 
-	select {
-	case <-ctx.Done():
-		err := s.subscription.close()
-		close(s.subscription.Errors)
-		return err
-	case <-done:
+	for {
+		select {
+		case <-ctx.Done():
+			err := s.subscription.close()
+			close(s.subscription.Errors)
+			return err
+		case <-time.After(60 * time.Second):
+		}
 	}
-
-	return nil
 }
 
 func (s *EventLogSource) Recv(ctx context.Context) (flow.Message[types.Event], func(), error) {
