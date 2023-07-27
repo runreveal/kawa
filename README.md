@@ -1,11 +1,11 @@
-# flow
+# cheetah
 
-flow is an opinionated framework for scalable, reliable stream processing.
+cheetah is an opinionated framework for scalable, reliable stream processing.
 
-# flowd
+# cheetahd
 
-flowd is a daemon for collecting system logs and metrics which makes is powered
-by flow.
+cheetahd is a daemon for collecting system logs and metrics which makes is powered
+by cheetah.
 
 # Installation
 
@@ -18,7 +18,7 @@ working set of APIs, interfaces and data models.
 
 # TODO
 
-- Ensure that consumers of flow aren't subject to all the dependencies of flowd.
+- Ensure that consumers of cheetah aren't subject to all the dependencies of cheetahd.
 - Consider breaking apart the library from the daemon.
 
 # Source Wishlist

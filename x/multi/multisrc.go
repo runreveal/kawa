@@ -4,11 +4,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/runreveal/flow"
+	"github.com/runreveal/chta"
 )
 
 type msgAck[T any] struct {
-	msg flow.Message[T]
+	msg chta.Message[T]
 	ack func()
 }
 
@@ -16,12 +16,12 @@ type msgAck[T any] struct {
 // quickly and may have some performance issues.  It definitely needs some work
 // on proper error handling, and concurrency issues on closing.
 type MultiSource[T any] struct {
-	wrapped []flow.Source[T]
+	wrapped []chta.Source[T]
 	msgAckC chan msgAck[T]
 }
 
 // TODO: options for ack behavior?
-func NewMultiSource[T any](sources []flow.Source[T]) MultiSource[T] {
+func NewMultiSource[T any](sources []chta.Source[T]) MultiSource[T] {
 	return MultiSource[T]{
 		wrapped: sources,
 		msgAckC: make(chan msgAck[T]),
@@ -41,7 +41,7 @@ func (ms MultiSource[T]) Run(ctx context.Context) error {
 
 	for _, src := range ms.wrapped {
 		wg.Add(1)
-		go func(src flow.Source[T]) {
+		go func(src chta.Source[T]) {
 			defer wg.Done()
 			for {
 				msg, ack, err := src.Recv(ctx)
@@ -71,11 +71,11 @@ func (ms MultiSource[T]) Run(ctx context.Context) error {
 	return err
 }
 
-func (ms MultiSource[T]) Recv(ctx context.Context) (flow.Message[T], func(), error) {
+func (ms MultiSource[T]) Recv(ctx context.Context) (chta.Message[T], func(), error) {
 	select {
 	case ma := <-ms.msgAckC:
 		return ma.msg, ma.ack, nil
 	case <-ctx.Done():
-		return flow.Message[T]{}, nil, ctx.Err()
+		return chta.Message[T]{}, nil, ctx.Err()
 	}
 }
