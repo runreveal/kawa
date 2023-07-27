@@ -46,13 +46,15 @@ func (c *ScannerConfig) Configure() (kawa.Source[types.Event], error) {
 }
 
 type SyslogConfig struct {
-	Addr string `json:"addr"`
+	Addr        string `json:"addr"`
+	ContentType string `json:"contentType"`
 }
 
 func (c *SyslogConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring syslog")
 	return syslog.NewSyslogSource(syslog.SyslogCfg{
-		Addr: c.Addr,
+		Addr:        c.Addr,
+		ContentType: c.ContentType,
 	}), nil
 }
 

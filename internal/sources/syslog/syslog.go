@@ -12,7 +12,8 @@ import (
 )
 
 type SyslogCfg struct {
-	Addr string `json:"addr"`
+	Addr        string `json:"addr"`
+	ContentType string `json:"contentType"`
 }
 
 type SyslogSource struct {
@@ -73,9 +74,10 @@ func (s *SyslogSource) Recv(ctx context.Context) (kawa.Message[types.Event], fun
 
 			msg := kawa.Message[types.Event]{
 				Value: types.Event{
-					Timestamp:  ts,
-					SourceType: "syslog",
-					RawLog:     rawLog,
+					Timestamp:   ts,
+					SourceType:  "syslog",
+					RawLog:      rawLog,
+					ContentType: s.cfg.ContentType,
 				},
 			}
 			return msg, nil, nil
