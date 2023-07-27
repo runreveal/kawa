@@ -1,4 +1,4 @@
-module github.com/runreveal/flow
+module github.com/runreveal/chta
 
 go 1.18
 

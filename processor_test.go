@@ -1,12 +1,12 @@
-package flow_test
+package chta_test
 
 import (
 	"context"
 	"fmt"
 	"testing"
 
-	"github.com/runreveal/flow"
-	"github.com/runreveal/flow/x/memory"
+	"github.com/runreveal/chta"
+	"github.com/runreveal/chta/x/memory"
 )
 
 type BinString string
@@ -29,12 +29,12 @@ func TestProcessor(t *testing.T) {
 		MsgC: outC,
 	}
 
-	countMessages := flow.HandlerFunc[*BinString, *BinString](
-		func(c context.Context, m flow.Message[*BinString]) ([]flow.Message[*BinString], error) {
-			return []flow.Message[*BinString]{m}, nil
+	countMessages := chta.HandlerFunc[*BinString, *BinString](
+		func(c context.Context, m chta.Message[*BinString]) ([]chta.Message[*BinString], error) {
+			return []chta.Message[*BinString]{m}, nil
 		})
 
-	p, _ := flow.New[*BinString, *BinString](flow.Config[*BinString, *BinString]{
+	p, _ := chta.New[*BinString, *BinString](chta.Config[*BinString, *BinString]{
 		Source:      memSrc,
 		Destination: memDst,
 		Handler:     (countMessages),

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/carlmjohnson/requests"
-	"github.com/runreveal/flow"
-	"github.com/runreveal/flow/internal/types"
-	batch "github.com/runreveal/flow/x/batcher"
+	"github.com/runreveal/chta"
+	"github.com/runreveal/chta/internal/types"
+	batch "github.com/runreveal/chta/x/batcher"
 	"golang.org/x/exp/slog"
 )
 
@@ -57,7 +57,7 @@ func (r *RunReveal) Run(ctx context.Context) error {
 
 	r.reqConf = func(rb *requests.Builder) {
 		rb.
-			UserAgent("flowd").
+			UserAgent("cheetahd").
 			Accept("application/json").
 			BaseURL(r.webhookURL).
 			Header("Content-Type", "application/json")
@@ -66,7 +66,7 @@ func (r *RunReveal) Run(ctx context.Context) error {
 	return r.batcher.Run(ctx)
 }
 
-func (r *RunReveal) Send(ctx context.Context, ack func(), msgs ...flow.Message[types.Event]) error {
+func (r *RunReveal) Send(ctx context.Context, ack func(), msgs ...chta.Message[types.Event]) error {
 	return r.batcher.Send(ctx, ack, msgs...)
 }
 
@@ -74,8 +74,8 @@ func (r *RunReveal) newReq() *requests.Builder {
 	return requests.New(r.reqConf)
 }
 
-// Flush sends the given messages of type flow.Message[type.Event] to the RunReveal api
-func (r *RunReveal) Flush(ctx context.Context, msgs []flow.Message[types.Event]) error {
+// Flush sends the given messages of type chta.Message[type.Event] to the RunReveal api
+func (r *RunReveal) Flush(ctx context.Context, msgs []chta.Message[types.Event]) error {
 	batch := make([]json.RawMessage, len(msgs))
 	var err error
 	for i, msg := range msgs {

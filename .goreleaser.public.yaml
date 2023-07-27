@@ -7,9 +7,9 @@ before:
     # you may remove this if you don't need go generate
     # - go generate ./...
 builds:
-  - main: ./cmd/flowd
-    id: flowd
-    binary: flowd
+  - main: ./cmd/cheetahd
+    id: cheetahd
+    binary: cheetahd
     goos:
       - linux
       - darwin
@@ -17,16 +17,16 @@ builds:
 
 archives:
   - format: tar.gz
-    id: flowd
+    id: cheetahd
     # this name template makes the OS and Arch compatible with the results of uname.
     name_template: >-
-      flowd-
+      cheetahd-
       {{- .Os }}-
       {{- if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     # use zip for windows archives
-    builds: [flowd]
+    builds: [cheetahd]
     format_overrides:
     - goos: windows
       format: zip
@@ -44,7 +44,7 @@ release:
   # Default is extracted from the origin remote URL or empty if its private hosted.
   github:
     owner: runreveal
-    name: flow
+    name: cheetah
 
 checksum:
   name_template: 'checksums.txt'

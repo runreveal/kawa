@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/runreveal/flow"
+	"github.com/runreveal/chta"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,7 +27,7 @@ func TestAckChu(t *testing.T) {
 	}
 }
 
-// func flushTest[T any](c context.Context, msgs []flow.Message[T]) {
+// func flushTest[T any](c context.Context, msgs []chta.Message[T]) {
 // 	for _, msg := range msgs {
 // 		fmt.Println(msg.Value)
 // 	}
@@ -36,7 +36,7 @@ func TestAckChu(t *testing.T) {
 
 func TestBatcher(t *testing.T) {
 
-	var ff = func(c context.Context, msgs []flow.Message[string]) error {
+	var ff = func(c context.Context, msgs []chta.Message[string]) error {
 		for _, msg := range msgs {
 			fmt.Println(msg.Value)
 		}
@@ -53,7 +53,7 @@ func TestBatcher(t *testing.T) {
 		ec <- bat.Run(c)
 	}(ctx, errc)
 
-	writeMsgs := []flow.Message[string]{
+	writeMsgs := []chta.Message[string]{
 		{Value: "hi"},
 		{Value: "hello"},
 		{Value: "bonjour"},
@@ -76,7 +76,7 @@ func TestBatchFlushTimeout(t *testing.T) {
 	hMu := sync.Mutex{}
 	handled := false
 
-	var ff = func(c context.Context, msgs []flow.Message[string]) error {
+	var ff = func(c context.Context, msgs []chta.Message[string]) error {
 		for _, msg := range msgs {
 			fmt.Println(msg.Value)
 		}
@@ -96,7 +96,7 @@ func TestBatchFlushTimeout(t *testing.T) {
 		ec <- bat.Run(c)
 	}(ctx, errc)
 
-	writeMsgs := []flow.Message[string]{
+	writeMsgs := []chta.Message[string]{
 		{Value: "hi"},
 		{Value: "hello"},
 	}
@@ -121,7 +121,7 @@ func TestBatchFlushTimeout(t *testing.T) {
 
 func TestBatcherErrors(t *testing.T) {
 	flushErr := errors.New("flush error")
-	var ff = func(c context.Context, msgs []flow.Message[string]) error {
+	var ff = func(c context.Context, msgs []chta.Message[string]) error {
 		return flushErr
 	}
 	bat := NewDestination[string](FlushFunc[string](ff), FlushLength(1))
@@ -134,7 +134,7 @@ func TestBatcherErrors(t *testing.T) {
 			ec <- bat.Run(c)
 		}(ctx, errc)
 
-		writeMsgs := []flow.Message[string]{
+		writeMsgs := []chta.Message[string]{
 			{Value: "hi"},
 		}
 
@@ -163,7 +163,7 @@ func TestBatcherErrors(t *testing.T) {
 
 	t.Run("cancellation works in deadlock", func(t *testing.T) {
 
-		var ff = func(c context.Context, msgs []flow.Message[string]) error {
+		var ff = func(c context.Context, msgs []chta.Message[string]) error {
 			<-c.Done()
 			return c.Err()
 		}
@@ -177,7 +177,7 @@ func TestBatcherErrors(t *testing.T) {
 			ec <- bat.Run(c)
 		}(ctx, errc)
 
-		writeMsgs := []flow.Message[string]{
+		writeMsgs := []chta.Message[string]{
 			// will be blocked flushing
 			{Value: "hi"},
 			// will be stuck waiting for flush slot
