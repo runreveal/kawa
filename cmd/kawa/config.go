@@ -7,8 +7,6 @@ import (
 	"github.com/runreveal/kawa/internal/destinations"
 	"github.com/runreveal/kawa/internal/destinations/runreveal"
 	"github.com/runreveal/kawa/internal/sources"
-	"github.com/runreveal/kawa/internal/sources/journald"
-	"github.com/runreveal/kawa/internal/sources/syslog"
 	"github.com/runreveal/kawa/internal/types"
 	"github.com/runreveal/lib/loader"
 	"golang.org/x/exp/slog"
@@ -21,12 +19,6 @@ import (
 func init() {
 	loader.Register("scanner", func() loader.Builder[kawa.Source[types.Event]] {
 		return &ScannerConfig{}
-	})
-	loader.Register("syslog", func() loader.Builder[kawa.Source[types.Event]] {
-		return &SyslogConfig{}
-	})
-	loader.Register("journald", func() loader.Builder[kawa.Source[types.Event]] {
-		return &JournaldConfig{}
 	})
 
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
@@ -43,19 +35,6 @@ type ScannerConfig struct {
 func (c *ScannerConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring scanner")
 	return sources.NewScanner(os.Stdin), nil
-}
-
-type SyslogConfig struct {
-	Addr        string `json:"addr"`
-	ContentType string `json:"contentType"`
-}
-
-func (c *SyslogConfig) Configure() (kawa.Source[types.Event], error) {
-	slog.Info("configuring syslog")
-	return syslog.NewSyslogSource(syslog.SyslogCfg{
-		Addr:        c.Addr,
-		ContentType: c.ContentType,
-	}), nil
 }
 
 type PrinterConfig struct {
@@ -75,12 +54,4 @@ func (c *RunRevealConfig) Configure() (kawa.Destination[types.Event], error) {
 	return runreveal.New(
 		runreveal.WithWebhookURL(c.WebhookURL),
 	), nil
-}
-
-type JournaldConfig struct {
-}
-
-func (c *JournaldConfig) Configure() (kawa.Source[types.Event], error) {
-	slog.Info("configuring journald")
-	return journald.New(), nil
 }

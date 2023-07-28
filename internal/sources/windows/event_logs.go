@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/runreveal/flow"
-	"github.com/runreveal/flow/internal/types"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/internal/types"
 	"golang.org/x/exp/slog"
 )
 
@@ -22,7 +22,7 @@ type EventLogSource struct {
 }
 
 type msgAck struct {
-	msg flow.Message[types.Event]
+	msg kawa.Message[types.Event]
 	ack func()
 }
 
@@ -80,10 +80,10 @@ func (s *EventLogSource) recvLoop(ctx context.Context) error {
 	}
 }
 
-func (s *EventLogSource) Recv(ctx context.Context) (flow.Message[types.Event], func(), error) {
+func (s *EventLogSource) Recv(ctx context.Context) (kawa.Message[types.Event], func(), error) {
 	select {
 	case <-ctx.Done():
-		return flow.Message[types.Event]{}, nil, ctx.Err()
+		return kawa.Message[types.Event]{}, nil, ctx.Err()
 	case pass := <-s.msgC:
 		return pass.msg, pass.ack, nil
 	}

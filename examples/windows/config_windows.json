@@ -1,0 +1,15 @@
+{
+    "pprof": "localhost:6060",
+    "sources": [
+      {
+        "type": "eventlog",
+        "channel": "Security",
+        "query": "*",
+      },
+    ],
+    "destinations": [
+      {
+        "type": "printer",
+      },
+    ],
+  }

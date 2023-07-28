@@ -4,9 +4,9 @@
 package main
 
 import (
-	"github.com/runreveal/flow"
-	"github.com/runreveal/flow/internal/sources/windows"
-	"github.com/runreveal/flow/internal/types"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/internal/sources/windows"
+	"github.com/runreveal/kawa/internal/types"
 	"github.com/runreveal/lib/loader"
 	"golang.org/x/exp/slog"
 	// We could register and configure these in a separate package
@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	loader.Register("eventlog", func() loader.Builder[flow.Source[types.Event]] {
+	loader.Register("eventlog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &EventLogConfig{}
 	})
 }
@@ -26,7 +26,7 @@ type EventLogConfig struct {
 	Query   string `json:"query"`
 }
 
-func (c *EventLogConfig) Configure() (flow.Source[types.Event], error) {
+func (c *EventLogConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring event log")
 	return windows.NewEventLogSource(windows.EventLogCfg{
 		Channel: c.Channel,

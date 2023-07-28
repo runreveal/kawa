@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/runreveal/flow"
-	"github.com/runreveal/flow/internal/types"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/internal/types"
 	"golang.org/x/sys/windows"
 )
 
@@ -150,10 +150,10 @@ func (evtSub *eventSubscription) winAPICallback(action, userContext, event uintp
 					break
 				}
 				msg := msgAck{
-					msg: flow.Message[types.Event]{
+					msg: kawa.Message[types.Event]{
 						Value: types.Event{
 							Timestamp:  xEvt.System.TimeCreated.SystemTime,
-							SourceType: xEvt.System.Channel,
+							SourceType: "eventlog",
 							RawLog:     jsonByte,
 						},
 					},
