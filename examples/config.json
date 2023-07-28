@@ -18,7 +18,8 @@
   "destinations": [
     {
       "type": "runreveal",
-      // Replace this webhook URL with your own
+      // Replace this webhook URL with your own, created on https://www.runreveal.com
+      // as a "Kawa" type source
       "webhookURL": "https://example.runreveal.com/sources/kawa/webhook/0123456789",
       // You can also use environment variables by referencing them with a
       // dollar sign. The value must be quoted, start with a dollar sign and be
