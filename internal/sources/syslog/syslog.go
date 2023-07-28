@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/runreveal/flow"
-	"github.com/runreveal/flow/internal/types"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/internal/types"
 	"golang.org/x/exp/slog"
 	"gopkg.in/mcuadros/go-syslog.v2"
 )
 
 type SyslogCfg struct {
-	Addr string `json:"addr"`
+	Addr        string `json:"addr"`
+	ContentType string `json:"contentType"`
 }
 
 type SyslogSource struct {
@@ -58,7 +59,7 @@ func (s *SyslogSource) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s *SyslogSource) Recv(ctx context.Context) (flow.Message[types.Event], func(), error) {
+func (s *SyslogSource) Recv(ctx context.Context) (kawa.Message[types.Event], func(), error) {
 	select {
 	case logParts := <-s.syslogPartsC:
 		if content, ok := logParts["content"]; ok {
@@ -71,11 +72,12 @@ func (s *SyslogSource) Recv(ctx context.Context) (flow.Message[types.Event], fun
 				}
 			}
 
-			msg := flow.Message[types.Event]{
+			msg := kawa.Message[types.Event]{
 				Value: types.Event{
-					Timestamp:  ts,
-					SourceType: "syslog",
-					RawLog:     rawLog,
+					Timestamp:   ts,
+					SourceType:  "syslog",
+					RawLog:      rawLog,
+					ContentType: s.cfg.ContentType,
 				},
 			}
 			return msg, nil, nil
@@ -83,7 +85,7 @@ func (s *SyslogSource) Recv(ctx context.Context) (flow.Message[types.Event], fun
 			fmt.Println("warn: found syslog without 'content' key")
 		}
 	case <-ctx.Done():
-		return flow.Message[types.Event]{}, nil, ctx.Err()
+		return kawa.Message[types.Event]{}, nil, ctx.Err()
 	}
 	panic("unreachable!")
 }

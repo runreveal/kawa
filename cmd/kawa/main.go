@@ -7,9 +7,9 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/runreveal/flow"
-	"github.com/runreveal/flow/internal/queue"
-	"github.com/runreveal/flow/internal/types"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/internal/queue"
+	"github.com/runreveal/kawa/internal/types"
 	"github.com/runreveal/lib/loader"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
@@ -29,7 +29,7 @@ func init() {
 		return a
 	}
 	level := slog.LevelInfo
-	if _, ok := os.LookupEnv("FLOW_DEBUG"); ok {
+	if _, ok := os.LookupEnv("KAWA_DEBUG"); ok {
 		level = slog.LevelDebug
 	}
 
@@ -49,8 +49,8 @@ func init() {
 func main() {
 	slog.Info(fmt.Sprintf("starting %s", path.Base(os.Args[0])), "version", version)
 	rootCmd := NewRootCommand()
-	flowdCmd := NewRunCommand()
-	rootCmd.AddCommand(flowdCmd)
+	kawaCmd := NewRunCommand()
+	rootCmd.AddCommand(kawaCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		slog.Error(fmt.Sprintf("%+v", err))
@@ -62,8 +62,8 @@ func main() {
 func NewRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   path.Base(os.Args[0]),
-		Short: `flowd is an all-in-one event ingestion daemon`,
-		Long: `flowd is an all-in-one event ingestion daemon.
+		Short: `kawa is an all-in-one event ingestion daemon`,
+		Long: `kawa is an all-in-one event ingestion daemon.
 It is designed to be a single binary that can be deployed to a server and	
 configured to receive events from a variety of sources and send them to a 
 variety of destinations.`,
@@ -75,8 +75,8 @@ variety of destinations.`,
 }
 
 type Config struct {
-	Sources      []loader.Loader[flow.Source[types.Event]]      `json:"sources"`
-	Destinations []loader.Loader[flow.Destination[types.Event]] `json:"destinations"`
+	Sources      []loader.Loader[kawa.Source[types.Event]]      `json:"sources"`
+	Destinations []loader.Loader[kawa.Destination[types.Event]] `json:"destinations"`
 
 	PProfAddr string `json:"pprof"`
 }
@@ -103,7 +103,7 @@ func NewRunCommand() *cobra.Command {
 			slog.Info(fmt.Sprintf("config: %+v", config))
 
 			ctx := context.Background()
-			srcs := []flow.Source[types.Event]{}
+			srcs := []kawa.Source[types.Event]{}
 			for _, v := range config.Sources {
 				src, err := v.Configure()
 				if err != nil {
@@ -112,7 +112,7 @@ func NewRunCommand() *cobra.Command {
 				srcs = append(srcs, src)
 			}
 
-			dsts := []flow.Destination[types.Event]{}
+			dsts := []kawa.Destination[types.Event]{}
 			for _, v := range config.Destinations {
 				dst, err := v.Configure()
 				if err != nil {

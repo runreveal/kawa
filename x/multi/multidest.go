@@ -3,21 +3,21 @@ package multi
 import (
 	"context"
 
-	"github.com/runreveal/flow"
+	"github.com/runreveal/kawa"
 )
 
 type MultiDestination[T any] struct {
-	wrapped []flow.Destination[T]
+	wrapped []kawa.Destination[T]
 }
 
 // TODO: options for ack behavior?
-func NewMultiDestination[T any](dests []flow.Destination[T]) MultiDestination[T] {
+func NewMultiDestination[T any](dests []kawa.Destination[T]) MultiDestination[T] {
 	return MultiDestination[T]{
 		wrapped: dests,
 	}
 }
 
-func (md MultiDestination[T]) Send(ctx context.Context, ack func(), msgs ...flow.Message[T]) error {
+func (md MultiDestination[T]) Send(ctx context.Context, ack func(), msgs ...kawa.Message[T]) error {
 	if ack != nil {
 		ack = ackFn(ack, len(md.wrapped))
 	}

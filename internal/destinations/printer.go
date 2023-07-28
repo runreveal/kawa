@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/runreveal/flow"
-	"github.com/runreveal/flow/internal/types"
+	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/internal/types"
 )
 
 type Printer struct {
@@ -17,7 +17,7 @@ func NewPrinter(writer io.Writer) *Printer {
 	return &Printer{writer: writer}
 }
 
-func (p *Printer) Send(ctx context.Context, ack func(), msg ...flow.Message[types.Event]) error {
+func (p *Printer) Send(ctx context.Context, ack func(), msg ...kawa.Message[types.Event]) error {
 	for _, m := range msg {
 		_, err := fmt.Fprintf(p.writer, "%s\n", m.Value.RawLog)
 		if err != nil {

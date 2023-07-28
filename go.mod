@@ -1,4 +1,4 @@
-module github.com/runreveal/flow
+module github.com/runreveal/kawa
 
 go 1.18
 

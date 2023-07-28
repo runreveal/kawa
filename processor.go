@@ -1,4 +1,4 @@
-package flow
+package kawa
 
 import (
 	"context"
@@ -39,7 +39,7 @@ func New[T1, T2 any](c Config[T1, T2], opts ...Option) (*Processor[T1, T2], erro
 		return nil, errors.New("both Source and Destination required")
 	}
 	if c.Handler == nil {
-		return nil, errors.New("handler required. Have you considered flow.Pipe?")
+		return nil, errors.New("handler required. Have you considered kawa.Pipe?")
 	}
 	p := &Processor[T1, T2]{
 		src:     c.Source,
