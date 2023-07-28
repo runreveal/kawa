@@ -1,0 +1,14 @@
+[Unit]
+Description=Kawa Collector
+After=network.target
+
+[Service]
+Type=simple
+# adjust the locations to your environment as necessary
+ExecStart=/usr/local/kawa run --config /etc/kawa/config.json
+MemoryMax=1G
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

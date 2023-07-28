@@ -1,0 +1,30 @@
+{
+  // this is an example config file for kawa
+  // it is parsed using hujson so you can use comments and trailing commas, but
+  // is otherwise identical to JSON
+  "sources": [
+    {
+      "type": "syslog",
+      // content-type tells the source how to parse logs received on this
+      // instance of syslog. We may explore using the syslog tag to indicate
+      // the schema as well down the line
+      "contentType": "application/json; rrschema=nginx-json",
+      "addr": "0.0.0.0:5514",
+    },
+    {
+      "type": "journald",
+    },
+  ],
+  "destinations": [
+    {
+      "type": "runreveal",
+      // Replace this webhook URL with your own
+      "webhookURL": "https://example.runreveal.com/sources/kawa/webhook/0123456789",
+      // You can also use environment variables by referencing them with a
+      // dollar sign. The value must be quoted, start with a dollar sign and be
+      // a valid environment variable name
+      // "webhookURL": "$WEBHOOK_URL",
+    },
+  ],
+}
+
