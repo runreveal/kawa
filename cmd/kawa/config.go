@@ -6,6 +6,7 @@ import (
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/internal/destinations"
 	"github.com/runreveal/kawa/internal/destinations/runreveal"
+	s3 "github.com/runreveal/kawa/internal/destinations/s3"
 	"github.com/runreveal/kawa/internal/sources"
 	"github.com/runreveal/kawa/internal/sources/journald"
 	"github.com/runreveal/kawa/internal/sources/syslog"
@@ -31,6 +32,9 @@ func init() {
 
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &PrinterConfig{}
+	})
+	loader.Register("s3", func() loader.Builder[kawa.Destination[types.Event]] {
+		return &S3Config{}
 	})
 	loader.Register("runreveal", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &RunRevealConfig{}
@@ -74,6 +78,21 @@ func (c *RunRevealConfig) Configure() (kawa.Destination[types.Event], error) {
 	slog.Info("configuring runreveal")
 	return runreveal.New(
 		runreveal.WithWebhookURL(c.WebhookURL),
+	), nil
+}
+
+type S3Config struct {
+	BucketName   string `json:"bucketName"`
+	PathPrefix   string `json:"pathPrefix"`
+	BucketRegion string `json:"bucketRegion"`
+}
+
+func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
+	slog.Info("configuring s3")
+	return s3.New(
+		s3.WithBucketName(c.BucketName),
+		s3.WithBucketRegion(c.BucketRegion),
+		s3.WithPathPrefix(c.PathPrefix),
 	), nil
 }
 
