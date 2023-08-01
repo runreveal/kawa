@@ -2,9 +2,9 @@ package kawa
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
-
-	"github.com/pkg/errors"
 )
 
 type Processor[T1, T2 any] struct {
@@ -66,15 +66,15 @@ func (p *Processor[T1, T2]) handle(ctx context.Context) error {
 	for {
 		msg, ack, err := p.src.Recv(ctx)
 		if err != nil {
-			return errors.Wrap(err, "source")
+			return fmt.Errorf("source: %w", err)
 		}
 		msgs, err := p.handler.Handle(ctx, msg)
 		if err != nil {
-			return errors.Wrap(err, "handle")
+			return fmt.Errorf("handler: %w", err)
 		}
 		err = p.dst.Send(ctx, ack, msgs...)
 		if err != nil {
-			return errors.Wrap(err, "send")
+			return fmt.Errorf("destination: %w", err)
 		}
 	}
 }
@@ -113,7 +113,7 @@ func (p *Processor[T1, T2]) Run(ctx context.Context) error {
 		}
 	case err = <-errc:
 		// All errors are fatal to this worker
-		err = errors.Wrap(err, "worker")
+		err = fmt.Errorf("worker: %w", err)
 	}
 	// Stop all the workers in case of error.
 	cancel()
