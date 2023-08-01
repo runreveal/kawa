@@ -85,6 +85,10 @@ type S3Config struct {
 	BucketName   string `json:"bucketName"`
 	PathPrefix   string `json:"pathPrefix"`
 	BucketRegion string `json:"bucketRegion"`
+
+	CustomEndpoint  string `json:"customEndpoint"`
+	AccessKeyID     string `json:"accessKeyID"`
+	AccessSecretKey string `json:"accessSecretKey"`
 }
 
 func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
@@ -93,6 +97,9 @@ func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
 		s3.WithBucketName(c.BucketName),
 		s3.WithBucketRegion(c.BucketRegion),
 		s3.WithPathPrefix(c.PathPrefix),
+		s3.WithCustomEndpoint(c.CustomEndpoint),
+		s3.WithAccessKeyID(c.AccessKeyID),
+		s3.WithAccessSecretKey(c.AccessSecretKey),
 	), nil
 }
 
