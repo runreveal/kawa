@@ -21,6 +21,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.3.6 // indirect
+	github.com/segmentio/ksuid v1.0.4 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect

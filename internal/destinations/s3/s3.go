@@ -15,6 +15,7 @@ import (
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/internal/types"
 	batch "github.com/runreveal/kawa/x/batcher"
+	"github.com/segmentio/ksuid"
 )
 
 type Option func(*s3)
@@ -139,9 +140,10 @@ func (s *s3) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error 
 	if err := gzipBuffer.Close(); err != nil {
 		return err
 	}
-	key := fmt.Sprintf("%s/%s/%d.json.gz",
+	key := fmt.Sprintf("%s/%s/%s_%d.gz",
 		s.pathPrefix,
 		time.Now().UTC().Format("2006/01/02/15"),
+		ksuid.New().String,
 		time.Now().Unix(),
 	)
 
