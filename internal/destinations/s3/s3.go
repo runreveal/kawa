@@ -143,7 +143,7 @@ func (s *s3) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error 
 	key := fmt.Sprintf("%s/%s/%s_%d.gz",
 		s.pathPrefix,
 		time.Now().UTC().Format("2006/01/02/15"),
-		ksuid.New().String,
+		ksuid.New().String(),
 		time.Now().Unix(),
 	)
 
