@@ -89,6 +89,8 @@ type S3Config struct {
 	CustomEndpoint  string `json:"customEndpoint"`
 	AccessKeyID     string `json:"accessKeyID"`
 	AccessSecretKey string `json:"accessSecretKey"`
+
+	BatchSize int `json:"batchSize"`
 }
 
 func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
@@ -100,6 +102,7 @@ func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
 		s3.WithCustomEndpoint(c.CustomEndpoint),
 		s3.WithAccessKeyID(c.AccessKeyID),
 		s3.WithAccessSecretKey(c.AccessSecretKey),
+		s3.WithBatchSize(c.BatchSize),
 	), nil
 }
 

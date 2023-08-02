@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -56,6 +55,12 @@ func WithAccessSecretKey(accessSecretKey string) Option {
 	}
 }
 
+func WithBatchSize(batchSize int) Option {
+	return func(s *s3) {
+		s.batchSize = batchSize
+	}
+}
+
 type s3 struct {
 	batcher *batch.Destination[types.Event]
 
@@ -66,6 +71,8 @@ type s3 struct {
 	customEndpoint  string
 	accessKeyID     string
 	accessSecretKey string
+
+	batchSize int
 }
 
 func New(opts ...Option) *s3 {
@@ -73,8 +80,11 @@ func New(opts ...Option) *s3 {
 	for _, o := range opts {
 		o(ret)
 	}
+	if ret.batchSize == 0 {
+		ret.batchSize = 100
+	}
 	ret.batcher = batch.NewDestination[types.Event](ret,
-		batch.FlushLength(25),
+		batch.FlushLength(ret.batchSize),
 		batch.FlushFrequency(5*time.Second),
 	)
 	return ret
@@ -116,9 +126,15 @@ func (s *s3) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error 
 
 	var buf bytes.Buffer
 	gzipBuffer := gzip.NewWriter(&buf)
-	err = json.NewEncoder(gzipBuffer).Encode(msgs)
-	if err != nil {
-		return err
+	for _, msg := range msgs {
+		_, err := gzipBuffer.Write(msg.Value.RawLog)
+		if err != nil {
+			return err
+		}
+		_, err = gzipBuffer.Write([]byte("\n"))
+		if err != nil {
+			return err
+		}
 	}
 	if err := gzipBuffer.Close(); err != nil {
 		return err
