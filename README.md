@@ -44,11 +44,121 @@ This is nascent software, subject to breaking changes as we reach a good
 working set of APIs, interfaces and data models.  Please try it out and help
 shape the direction of the project by giving us feedback!
 
-# Source Wishlist
+# Getting started
 
-Kafka
-redis
-NATS
-amqp
-pubsub
-Kinesis
+An example use case might be shipping your nginx logs to s3. Save the following
+config.json, and fill in the config file.
+```
+{
+  "sources": [
+    {
+      "type": "syslog",
+      "addr": "0.0.0.0:5514",
+      "contentType": "application/json; rrtype=nginx-json",
+    },
+  ],
+  "destinations": [
+    {
+      "type": "s3",
+      "bucketName": "{{YOUR-S3-BUCKET-NAME}}",
+      "bucketRegion": "us-east-2",
+    },
+  ],
+}
+```
+
+Next, add the following line to your nginx server config.
+```
+server {
+    access_log syslog:server=127.0.0.1:5514;
+    # ... other config ...
+}
+```
+
+Run it!
+```
+$ kawa run --config config.json
+```
+
+
+# Supported sources
+ - syslog
+ - scanner
+ - journald
+
+# Supported destinations
+ - s3 / r2
+ - printer
+ - runreveal
+
+# Source Configuration
+## syslog
+With the syslog config, and address and content type can be set.
+```
+{
+    "type":"syslog",
+    "addr":"0.0.0.0:5514",
+}
+```
+
+## journald
+Journald has no configuration, just set the type and kawa will read from journald.
+```
+{
+    "type":"journald"
+}
+```
+
+## scanner
+Read from stdin. Useful for testing or doing something you probably shouldn't.
+```
+{
+    "type":"scanner",
+}
+```
+
+
+# Destination Configuration
+## RunReveal
+WebhookURL is the only config argument and it is required.
+```
+{
+    "type":"runreveal",
+    "webhookURL": "https://api.runreveal.com/....."
+}
+```
+
+## S3
+The s3 destination is compatible with s3 and other s3 compatible interfaces. By default the s3 destination will pull credentials from the standard places the aws sdk looks, but they can optionally be set in the configuration.
+
+customEndpoint must be set for custom destinations, and in that case bucketRegion probably will not be set. bucketName is the only required argument.
+
+For high volume or low volume, the batchSize can be tweaked but is set to 100 by default.
+
+```
+{
+    "type":"s3",
+    "bucketName":"my-cool-log-bucket",
+    "bucketRegion":"us-east-2",
+    "batchSize":1000,
+}
+```
+
+## Printer
+Printer will print the results to stdout. Useful for testing and development.
+```
+{
+    "type":"printer",
+}
+```
+
+# Source / Destination Wishlist
+ - Kafka
+ - redis
+ - NATS
+ - amqp
+ - pubsub
+ - Kinesis
+ - memcache?
+ - zmq?
+ - NSQ?
