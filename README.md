@@ -3,6 +3,8 @@
 <!-- The space below the div is necessary -->
 <div align=center>
 
+<img src="docs/static/kawa.png" width="300px">
+
 [![Go Reference](https://pkg.go.dev/badge/github.com/runreveal/kawa.svg)](https://pkg.go.dev/github.com/runreveal/kawa)
 [![GoFrame CI](https://github.com/runreveal/kawa/actions/workflows/ci.yml/badge.svg)](https://github.com/runreveal/kawa/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/runreveal/kawa)](https://goreportcard.com/report/github.com/runreveal/kawa)
@@ -33,6 +35,7 @@ See https://blog.runreveal.com/insert-blog-here
 - Ensure that consumers of kawa aren't subject to all the dependencies of the
   kawa program.
 - Related: consider breaking apart the library from the daemon.
+- Event Routing and/or Multiple Processors in kawa program
 - Dynamic Sources (e.g. Kafka Consumer Groups)
 
 # Disclaimer
