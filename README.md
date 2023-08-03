@@ -28,7 +28,7 @@ kubernetes examples soon.
 
 # Design and Rationale
 
-See https://blog.runreveal.com/insert-blog-here
+See https://blog.runreveal.com/kawa-the-event-processor-for-the-grug-brained-developer/
 
 # Roadmap
 
