@@ -1,5 +1,13 @@
 # kawa
 
+<div align=center>
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/runreveal/kawa.svg)](https://pkg.go.dev/github.com/runreveal/kawa)
+[![GoFrame CI](https://github.com/runreveal/kawa/actions/workflows/ci.yml/badge.svg)](https://github.com/runreveal/kawa/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/runreveal/kawa)](https://goreportcard.com/report/github.com/runreveal/kawa)
+[![License](https://img.shields.io/github/license/runreveal/kawa.svg?style=flat)](https://github.com/runreveal/kawa)
+</div>
+
 kawa is an opinionated framework for scalable, reliable stream processing.
 
 kawa also provides a daemon for collecting system logs and metrics.
