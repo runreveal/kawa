@@ -67,7 +67,7 @@ config.json, and fill in the config file.
 Next, add the following line to your nginx server config.
 ```
 server {
-    access_log syslog:server=127.0.0.1:5514 json_combined;
+    access_log syslog:server=127.0.0.1:5514;
     # ... other config ...
 }
 ```
