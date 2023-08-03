@@ -17,6 +17,11 @@
   ],
   "destinations": [
     {
+      "type": "s3",
+      "bucketName": "the-lumber-mill",
+      "bucketRegion": "us-west-2",
+    },
+    {
       "type": "runreveal",
       // Replace this webhook URL with your own, created on https://www.runreveal.com
       // as a "Kawa" type source
