@@ -3,7 +3,7 @@
 <!-- The space below the div is necessary -->
 <div align=center>
 
-![Kawa](/docs/statics/kawa.png)
+![Kawa](docs/static/kawa.png)
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/runreveal/kawa.svg)](https://pkg.go.dev/github.com/runreveal/kawa)
 [![GoFrame CI](https://github.com/runreveal/kawa/actions/workflows/ci.yml/badge.svg)](https://github.com/runreveal/kawa/actions/workflows/ci.yml)
