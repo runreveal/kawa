@@ -5,6 +5,7 @@ import (
 
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/internal/destinations"
+	"github.com/runreveal/kawa/internal/destinations/mqtt"
 	"github.com/runreveal/kawa/internal/destinations/runreveal"
 	s3 "github.com/runreveal/kawa/internal/destinations/s3"
 	"github.com/runreveal/kawa/internal/sources"
@@ -38,6 +39,9 @@ func init() {
 	})
 	loader.Register("runreveal", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &RunRevealConfig{}
+	})
+	loader.Register("mqtt", func() loader.Builder[kawa.Destination[types.Event]] {
+		return &MQTTConfig{}
 	})
 }
 
@@ -78,6 +82,33 @@ func (c *RunRevealConfig) Configure() (kawa.Destination[types.Event], error) {
 	slog.Info("configuring runreveal")
 	return runreveal.New(
 		runreveal.WithWebhookURL(c.WebhookURL),
+	), nil
+}
+
+type MQTTConfig struct {
+	Broker   string `json:"broker"`
+	ClientID string `json:"clientID"`
+	Topic    string `json:"topic"`
+
+	UserName string `json:"userName"`
+	Password string `json:"password"`
+
+	QOS       byte `json:"qos"`
+	Retained  bool `json:"retained"`
+	BatchSize int  `json:"batchSize"`
+}
+
+func (c *MQTTConfig) Configure() (kawa.Destination[types.Event], error) {
+	slog.Info("configuring mqtt")
+	return mqtt.New(
+		mqtt.WithBroker(c.Broker),
+		mqtt.WithClientID(c.ClientID),
+		mqtt.WithQOS(c.QOS),
+		mqtt.WithBatchSize(c.BatchSize),
+		mqtt.WithTopic(c.Topic),
+		mqtt.WithRetained(c.Retained),
+		mqtt.WithUserName(c.UserName),
+		mqtt.WithPassword(c.Password),
 	), nil
 }
 
