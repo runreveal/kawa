@@ -10,6 +10,7 @@ import (
 	s3 "github.com/runreveal/kawa/internal/destinations/s3"
 	"github.com/runreveal/kawa/internal/sources"
 	"github.com/runreveal/kawa/internal/sources/journald"
+	mqttsrc "github.com/runreveal/kawa/internal/sources/mqtt"
 	"github.com/runreveal/kawa/internal/sources/syslog"
 	"github.com/runreveal/kawa/internal/types"
 	"github.com/runreveal/lib/loader"
@@ -29,6 +30,9 @@ func init() {
 	})
 	loader.Register("journald", func() loader.Builder[kawa.Source[types.Event]] {
 		return &JournaldConfig{}
+	})
+	loader.Register("mqtt", func() loader.Builder[kawa.Source[types.Event]] {
+		return &MQTTSrcConfig{}
 	})
 
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
@@ -109,6 +113,33 @@ func (c *MQTTConfig) Configure() (kawa.Destination[types.Event], error) {
 		mqtt.WithRetained(c.Retained),
 		mqtt.WithUserName(c.UserName),
 		mqtt.WithPassword(c.Password),
+	), nil
+}
+
+type MQTTSrcConfig struct {
+	Broker   string `json:"broker"`
+	ClientID string `json:"clientID"`
+	Topic    string `json:"topic"`
+
+	UserName string `json:"userName"`
+	Password string `json:"password"`
+
+	QOS       byte `json:"qos"`
+	Retained  bool `json:"retained"`
+	BatchSize int  `json:"batchSize"`
+}
+
+func (c *MQTTSrcConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info("configuring mqtt")
+	return mqttsrc.New(
+		mqttsrc.WithBroker(c.Broker),
+		mqttsrc.WithClientID(c.ClientID),
+		mqttsrc.WithQOS(c.QOS),
+		mqttsrc.WithBatchSize(c.BatchSize),
+		mqttsrc.WithTopic(c.Topic),
+		mqttsrc.WithRetained(c.Retained),
+		mqttsrc.WithUserName(c.UserName),
+		mqttsrc.WithPassword(c.Password),
 	), nil
 }
 

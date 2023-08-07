@@ -3,25 +3,27 @@
     // it is parsed using hujson so you can use comments and trailing commas, but
     // is otherwise identical to JSON
     "sources": [
-      {
-        "type": "syslog",
-        "addr": "0.0.0.0:5514",
-        // content-type tells the source how to parse logs received on this
-        // instance of syslog. We may explore using the syslog tag to indicate
-        // the schema as well down the line.
-        // "contentType": "application/json; rrtype=nginx-json",
-      },
+        {
+            "type": "mqtt",
+            "broker": "mqtt://broker.mqtt:1883",
+            "clientID": "kawa_src",
+            "userName": "",
+            "password": "",
+            "topic": "iot/#",
+          },
     ],
     "destinations": [
-      {
-        "type": "mqtt",
-        "broker": "mqtt://mqtt.example.com:1883",
-        "clientID": "kawa",
-        "userName": "",
-        "password": "",
-        "topic": "kawa",
-  
-      }
+        {
+            "type": "mqtt",
+            "broker": "mqtt://broker.mqtt:1883",
+            "clientID": "kawa_dst",
+            "userName": "",
+            "password": "",
+            "topic": "kawa/dest",
+          },
+        {
+            "type":"printer"
+        }
     ],
   }
   

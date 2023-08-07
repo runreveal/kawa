@@ -119,7 +119,8 @@ func (m *mqtt) Send(ctx context.Context, ack func(), msgs ...kawa.Message[types.
 
 // Flush sends the given messages of type kawa.Message[type.Event] to an MQTT topic
 func (m *mqtt) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error {
-	opts := MQTT.NewClientOptions().AddBroker(m.broker).SetClientID(m.clientID).SetUsername(m.userName).SetPassword(m.password)
+	opts := MQTT.NewClientOptions().AddBroker(m.broker).
+		SetClientID(m.clientID).SetUsername(m.userName).SetPassword(m.password)
 	client := MQTT.NewClient(opts)
 	// m.client = client
 
@@ -134,12 +135,7 @@ func (m *mqtt) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) erro
 			return err
 		}
 
-		sendTopic := m.topic
-		if msg.Topic != "" {
-			sendTopic = msg.Topic
-		}
-
-		token := client.Publish(sendTopic, m.qos, m.retained, jsonData)
+		token := client.Publish(m.topic, m.qos, m.retained, jsonData)
 		token.Wait()
 		if token.Error() != nil {
 			return token.Error()
