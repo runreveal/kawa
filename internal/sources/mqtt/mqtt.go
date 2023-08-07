@@ -34,8 +34,6 @@ type mqtt struct {
 	qos      byte
 	retained bool
 
-	client MQTT.Client
-
 	batchSize int
 }
 
