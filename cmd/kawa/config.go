@@ -5,6 +5,7 @@ import (
 
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/internal/destinations"
+	"github.com/runreveal/kawa/internal/destinations/gelf"
 	"github.com/runreveal/kawa/internal/destinations/runreveal"
 	s3 "github.com/runreveal/kawa/internal/destinations/s3"
 	"github.com/runreveal/kawa/internal/sources"
@@ -38,6 +39,9 @@ func init() {
 	})
 	loader.Register("runreveal", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &RunRevealConfig{}
+	})
+	loader.Register("gelf", func() loader.Builder[kawa.Destination[types.Event]] {
+		return &GelfConfig{}
 	})
 }
 
@@ -112,4 +116,22 @@ type JournaldConfig struct {
 func (c *JournaldConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring journald")
 	return journald.New(), nil
+}
+
+type GelfConfig struct {
+	ServiceAddr string `json:"serviceAddr"`
+	Host        string `json:"host"`
+	Protocol    string `json:"protocol"`
+
+	BatchSize int `json:"batchSize"`
+}
+
+func (c *GelfConfig) Configure() (kawa.Destination[types.Event], error) {
+	slog.Info("configuring gelf")
+	return gelf.New(
+		gelf.WithBatchSize(c.BatchSize),
+		gelf.WithHost(c.Host),
+		gelf.WithServiceAddr(c.ServiceAddr),
+		gelf.WithProtocol(c.Protocol),
+	), nil
 }
