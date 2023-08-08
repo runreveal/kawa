@@ -117,6 +117,26 @@ Read from stdin. Useful for testing or doing something you probably shouldn't.
 }
 ```
 
+## MQTT
+MQTT will listen on the supplied topic for new events.
+
+broker, clientID, and topic are required to receive data.
+clientID must be unique from any other mqtt destinations or sources
+
+```
+{
+  "type": "mqtt",
+  "broker": "mqtt://broker.mqtt:1883",
+  "clientID": "kawa_src",
+  "userName": "",
+  "password": "",
+  "topic": "kawa/src",
+
+  "qos": 1, // Optional defaults to 1 if not included
+  "retained": false, // Optional defaults to false if not included
+}
+```
+
 
 # Destination Configuration
 ## RunReveal
@@ -149,6 +169,27 @@ Printer will print the results to stdout. Useful for testing and development.
 ```
 {
     "type":"printer",
+}
+```
+
+## MQTT
+MQTT will send events to the supplied topic.
+
+broker, clientID, and topic are required to send data.
+clientID must be unique from any other mqtt destinations or sources
+
+```
+{
+  "type": "mqtt",
+  "broker": "mqtt://broker.mqtt:1883",
+  "clientID": "kawa_dst",
+  "userName": "",
+  "password": "",
+  "topic": "kawa/dest",
+
+  "qos": 1, // Optional defaults to 1 if not included
+  "retained": false, // Optional defaults to false if not included
+  "batchSize": 100, // Optional defaults to 100 if not included
 }
 ```
 
