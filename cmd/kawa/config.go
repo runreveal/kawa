@@ -135,7 +135,6 @@ func (c *MQTTSrcConfig) Configure() (kawa.Source[types.Event], error) {
 		mqttsrc.WithBroker(c.Broker),
 		mqttsrc.WithClientID(c.ClientID),
 		mqttsrc.WithQOS(c.QOS),
-		mqttsrc.WithBatchSize(c.BatchSize),
 		mqttsrc.WithTopic(c.Topic),
 		mqttsrc.WithRetained(c.Retained),
 		mqttsrc.WithUserName(c.UserName),

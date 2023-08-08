@@ -33,8 +33,6 @@ type mqtt struct {
 
 	qos      byte
 	retained bool
-
-	batchSize int
 }
 
 type msgAck struct {
@@ -74,12 +72,6 @@ func WithRetained(retained bool) Option {
 	}
 }
 
-func WithBatchSize(batchSize int) Option {
-	return func(m *mqtt) {
-		m.batchSize = batchSize
-	}
-}
-
 func WithUserName(userName string) Option {
 	return func(m *mqtt) {
 		m.userName = userName
@@ -94,17 +86,14 @@ func WithPassword(password string) Option {
 
 func New(opts ...Option) *mqtt {
 	ret := &mqtt{
-		msgC: make(chan msgAck),
+		msgC:     make(chan msgAck),
+		qos:      1,
+		retained: false,
+		topic:    "#",
 	}
 
 	for _, o := range opts {
 		o(ret)
-	}
-	if ret.topic == "" {
-		ret.topic = "#"
-	}
-	if ret.qos == 0 {
-		ret.qos = 1
 	}
 
 	return ret

@@ -79,18 +79,14 @@ type mqtt struct {
 }
 
 func New(opts ...Option) *mqtt {
-	ret := &mqtt{}
+	ret := &mqtt{
+		qos:       1,
+		retained:  false,
+		batchSize: 100,
+		topic:     "#",
+	}
 	for _, o := range opts {
 		o(ret)
-	}
-	if ret.topic == "" {
-		ret.topic = "#"
-	}
-	if ret.qos == 0 {
-		ret.qos = 1
-	}
-	if ret.batchSize == 0 {
-		ret.batchSize = 100
 	}
 
 	ret.batcher = batch.NewDestination[types.Event](ret,

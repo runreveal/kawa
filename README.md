@@ -120,8 +120,11 @@ Read from stdin. Useful for testing or doing something you probably shouldn't.
 ## MQTT
 MQTT will listen on the supplied topic for new events.
 
-broker, clientID, and topic are required to receive data.
+broker and clientID are required to receive data.
 clientID must be unique from any other mqtt destinations or sources
+If topic is not supplied, it will default to the wildcard `#`.
+
+Do not read events from the same topic that an MQTT destination is sending to otherwise kawa will create an infinite loop and eventually crash.
 
 ```
 {
@@ -175,8 +178,9 @@ Printer will print the results to stdout. Useful for testing and development.
 ## MQTT
 MQTT will send events to the supplied topic.
 
-broker, clientID, and topic are required to send data.
+broker and clientID are required to send data.
 clientID must be unique from any other mqtt destinations or sources
+If topic is not supplied, it will default to the wildcard `#`.
 
 ```
 {
