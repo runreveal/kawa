@@ -28,7 +28,11 @@ func WithClientID(clientID string) Option {
 
 func WithTopic(topic string) Option {
 	return func(m *mqtt) {
-		m.topic = topic
+		if topic == "" {
+			m.topic = "#"
+		} else {
+			m.topic = topic
+		}
 	}
 }
 
@@ -46,7 +50,12 @@ func WithRetained(retained bool) Option {
 
 func WithBatchSize(batchSize int) Option {
 	return func(m *mqtt) {
-		m.batchSize = batchSize
+		if batchSize > 0 {
+			m.batchSize = batchSize
+		} else {
+			m.batchSize = 100
+		}
+
 	}
 }
 
@@ -64,6 +73,7 @@ func WithPassword(password string) Option {
 
 type mqtt struct {
 	batcher *batch.Destination[types.Event]
+	client  MQTT.Client
 
 	broker   string
 	clientID string
@@ -79,12 +89,7 @@ type mqtt struct {
 }
 
 func New(opts ...Option) *mqtt {
-	ret := &mqtt{
-		qos:       1,
-		retained:  false,
-		batchSize: 100,
-		topic:     "#",
-	}
+	ret := &mqtt{}
 	for _, o := range opts {
 		o(ret)
 	}
@@ -104,6 +109,16 @@ func (m *mqtt) Run(ctx context.Context) error {
 		return errors.New("missing clientID")
 	}
 
+	opts := MQTT.NewClientOptions().AddBroker(m.broker).
+		SetClientID(m.clientID).SetUsername(m.userName).SetPassword(m.password)
+	client := MQTT.NewClient(opts)
+
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+
+	m.client = client
+
 	return m.batcher.Run(ctx)
 }
 
@@ -113,15 +128,6 @@ func (m *mqtt) Send(ctx context.Context, ack func(), msgs ...kawa.Message[types.
 
 // Flush sends the given messages of type kawa.Message[type.Event] to an MQTT topic
 func (m *mqtt) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error {
-	opts := MQTT.NewClientOptions().AddBroker(m.broker).
-		SetClientID(m.clientID).SetUsername(m.userName).SetPassword(m.password)
-	client := MQTT.NewClient(opts)
-	// m.client = client
-
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		return token.Error()
-	}
-	defer client.Disconnect(250)
 
 	for _, msg := range msgs {
 		jsonData, err := json.Marshal(msg.Value)
@@ -129,7 +135,7 @@ func (m *mqtt) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) erro
 			return err
 		}
 
-		token := client.Publish(m.topic, m.qos, m.retained, jsonData)
+		token := m.client.Publish(m.topic, m.qos, m.retained, jsonData)
 		token.Wait()
 		if token.Error() != nil {
 			return token.Error()

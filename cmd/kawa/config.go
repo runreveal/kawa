@@ -104,7 +104,7 @@ type MQTTConfig struct {
 
 func (c *MQTTConfig) Configure() (kawa.Destination[types.Event], error) {
 	slog.Info("configuring mqtt")
-	return mqtt.New(
+	mqttDst := mqtt.New(
 		mqtt.WithBroker(c.Broker),
 		mqtt.WithClientID(c.ClientID),
 		mqtt.WithQOS(c.QOS),
@@ -113,7 +113,9 @@ func (c *MQTTConfig) Configure() (kawa.Destination[types.Event], error) {
 		mqtt.WithRetained(c.Retained),
 		mqtt.WithUserName(c.UserName),
 		mqtt.WithPassword(c.Password),
-	), nil
+	)
+
+	return mqttDst, nil
 }
 
 type MQTTSrcConfig struct {

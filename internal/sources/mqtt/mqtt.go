@@ -56,7 +56,11 @@ func WithClientID(clientID string) Option {
 
 func WithTopic(topic string) Option {
 	return func(m *mqtt) {
-		m.topic = topic
+		if topic == "" {
+			m.topic = "#"
+		} else {
+			m.topic = topic
+		}
 	}
 }
 
@@ -86,10 +90,7 @@ func WithPassword(password string) Option {
 
 func New(opts ...Option) *mqtt {
 	ret := &mqtt{
-		msgC:     make(chan msgAck),
-		qos:      1,
-		retained: false,
-		topic:    "#",
+		msgC: make(chan msgAck),
 	}
 
 	for _, o := range opts {
@@ -104,10 +105,8 @@ func (m *mqtt) Run(ctx context.Context) error {
 }
 
 func (m *mqtt) recvLoop(ctx context.Context) error {
-	// Open file to check and save high watermark
 	opts := MQTT.NewClientOptions().AddBroker(m.broker).
 		SetClientID(m.clientID).SetUsername(m.userName).SetPassword(m.password)
-	//SetAutoReconnect(true).SetConnectRetry(true)
 
 	client := MQTT.NewClient(opts)
 
