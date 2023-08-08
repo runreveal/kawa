@@ -9,7 +9,6 @@ import (
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/internal/types"
-	"golang.org/x/exp/slog"
 )
 
 type mqttMsg struct {
@@ -105,10 +104,7 @@ func (m *mqtt) Run(ctx context.Context) error {
 }
 
 func (m *mqtt) recvLoop(ctx context.Context) error {
-	opts := MQTT.NewClientOptions().AddBroker(m.broker).
-		SetClientID(m.clientID).SetUsername(m.userName).SetPassword(m.password)
-
-	client := MQTT.NewClient(opts)
+	errc := make(chan error)
 
 	newMessage := func(client MQTT.Client, message MQTT.Message) {
 		rawMsg := mqttMsg{
@@ -122,7 +118,7 @@ func (m *mqtt) recvLoop(ctx context.Context) error {
 
 		rawMsgBts, err := json.Marshal(rawMsg)
 		if err != nil {
-			slog.Error(fmt.Sprintf("unmarshaling %+v", err))
+			errc <- fmt.Errorf("unmarshaling mqtt %+v", err)
 		}
 
 		select {
@@ -143,6 +139,15 @@ func (m *mqtt) recvLoop(ctx context.Context) error {
 		}
 	}
 
+	connLost := func(client MQTT.Client, err error) {
+		errc <- err
+	}
+
+	opts := MQTT.NewClientOptions().AddBroker(m.broker).
+		SetClientID(m.clientID).SetUsername(m.userName).SetPassword(m.password).SetConnectionLostHandler(connLost)
+
+	client := MQTT.NewClient(opts)
+
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		return fmt.Errorf("mqtt connect error: %s", token.Error())
 	}
@@ -159,6 +164,8 @@ func (m *mqtt) recvLoop(ctx context.Context) error {
 	for {
 		select {
 		case <-time.After(60 * time.Second):
+		case err := <-errc:
+			return err
 		case <-ctx.Done():
 			return ctx.Err()
 		}
