@@ -1,4 +1,4 @@
-package runreveal
+package s3
 
 import (
 	"bytes"
