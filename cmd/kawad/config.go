@@ -11,6 +11,7 @@ import (
 	"github.com/runreveal/kawa/cmd/kawad/internal/sources/scanner"
 	"github.com/runreveal/kawa/cmd/kawad/internal/sources/syslog"
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
+	"github.com/runreveal/kawa/internal/destinations/sqs"
 	"github.com/runreveal/kawa/x/s3"
 	"github.com/runreveal/lib/loader"
 	"golang.org/x/exp/slog"
@@ -33,6 +34,9 @@ func init() {
 
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &PrinterConfig{}
+	})
+	loader.Register("sqs", func() loader.Builder[kawa.Destination[types.Event]] {
+		return &SQSConfig{}
 	})
 	loader.Register("s3", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &S3Config{}
@@ -94,6 +98,16 @@ type S3Config struct {
 	BatchSize int `json:"batchSize"`
 }
 
+type SQSConfig struct {
+	QueueURL string `json:"queueURL"`
+	Region   string `json:"region"`
+
+	AccessKeyID     string `json:"accessKeyID"`
+	AccessSecretKey string `json:"accessSecretKey"`
+
+	BatchSize int `json:"batchSize"`
+}
+
 func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
 	slog.Info("configuring s3")
 	return s3kawad.NewS3(
@@ -104,6 +118,17 @@ func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
 		s3.WithAccessKeyID(c.AccessKeyID),
 		s3.WithAccessSecretKey(c.AccessSecretKey),
 		s3.WithBatchSize(c.BatchSize),
+	), nil
+}
+
+func (c *SQSConfig) Configure() (kawa.Destination[types.Event], error) {
+	slog.Info("configuring sqs")
+	return sqs.New(
+		sqs.WithQueueURL(c.QueueURL),
+		sqs.WithRegion(c.Region),
+		sqs.WithAccessKeyID(c.AccessKeyID),
+		sqs.WithAccessSecretKey(c.AccessSecretKey),
+		sqs.WithBatchSize(c.BatchSize),
 	), nil
 }
 
