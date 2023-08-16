@@ -31,6 +31,10 @@ func init() {
 		return &JournaldConfig{}
 	})
 
+	loader.Register("tail", func() loader.Builder[kawa.Source[types.Event]] {
+		return &TailConfig{}
+	})
+
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &PrinterConfig{}
 	})
@@ -56,6 +60,10 @@ func (c *ScannerConfig) Configure() (kawa.Source[types.Event], error) {
 type SyslogConfig struct {
 	Addr        string `json:"addr"`
 	ContentType string `json:"contentType"`
+}
+
+type TailConfig struct {
+	File string `json:"file"`
 }
 
 func (c *SyslogConfig) Configure() (kawa.Source[types.Event], error) {
@@ -117,6 +125,13 @@ func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
 		s3.WithAccessKeyID(c.AccessKeyID),
 		s3.WithAccessSecretKey(c.AccessSecretKey),
 		s3.WithBatchSize(c.BatchSize),
+	), nil
+}
+
+func (t *TailConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info("configuring tail")
+	return sources.NewTail(
+		t.File,
 	), nil
 }
 

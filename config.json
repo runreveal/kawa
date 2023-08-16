@@ -1,0 +1,14 @@
+{
+  "pprof": "localhost:6060",
+  "sources": [
+    {
+      "type": "tail",
+      "file": "myfile"
+    }
+  ],
+  "destinations": [
+    {
+      "type": "printer"
+    }
+  ]
+}
