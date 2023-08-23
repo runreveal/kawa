@@ -14,6 +14,8 @@
   </div>
 </div>
 
+---
+
 kawa is an opinionated framework for scalable, reliable stream processing.
 
 kawa also provides a daemon for collecting system logs and metrics.
