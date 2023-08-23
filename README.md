@@ -7,10 +7,10 @@
 
 &nbsp;&nbsp;
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/runreveal/kawa.svg)](https://pkg.go.dev/github.com/runreveal/kawa)
-[![GoFrame CI](https://github.com/runreveal/kawa/actions/workflows/ci.yml/badge.svg)](https://github.com/runreveal/kawa/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/runreveal/kawa)](https://goreportcard.com/report/github.com/runreveal/kawa)
-[![License](https://img.shields.io/github/license/runreveal/kawa.svg?style=flat)](https://github.com/runreveal/kawa)
+<a href="https://pkg.go.dev/github.com/runreveal/kawa"><img alt="Go Reference" src="https://pkg.go.dev/badge/github.com/runreveal/kawa.svg"/></a>
+<a href="https://github.com/runreveal/kawa/actions/workflows/ci.yml"><img alt="GoFrame CI" src="https://github.com/runreveal/kawa/actions/workflows/ci.yml/badge.svg"/></a>
+<a href="https://goreportcard.com/report/github.com/runreveal/kawa"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/runreveal/kawa"/></a>
+<a href="https://github.com/runreveal/kawa"><img alt="License" src="https://img.shields.io/github/license/runreveal/kawa.svg?style=flat"/></a>
 
 </div>
 
