@@ -1,17 +1,17 @@
 # kawa
 
-<!-- The space below the div is necessary -->
+<!-- The space below the div closing tag is necessary -->
 <div align=center>
-
-<img src="docs/static/kawa.png" width="300px">
-
-&nbsp;&nbsp;
-
-<a href="https://pkg.go.dev/github.com/runreveal/kawa"><img alt="Go Reference" src="https://pkg.go.dev/badge/github.com/runreveal/kawa.svg"/></a>
-<a href="https://github.com/runreveal/kawa/actions/workflows/ci.yml"><img alt="GoFrame CI" src="https://github.com/runreveal/kawa/actions/workflows/ci.yml/badge.svg"/></a>
-<a href="https://goreportcard.com/report/github.com/runreveal/kawa"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/runreveal/kawa"/></a>
-<a href="https://github.com/runreveal/kawa"><img alt="License" src="https://img.shields.io/github/license/runreveal/kawa.svg?style=flat"/></a>
-
+  <div>
+    <img src="docs/static/kawa.png" width="300px">
+    &nbsp;&nbsp;
+  </div>
+  <div>
+    <a href="https://pkg.go.dev/github.com/runreveal/kawa"><img alt="Go Reference" src="https://pkg.go.dev/badge/github.com/runreveal/kawa.svg"/></a>
+    <a href="https://github.com/runreveal/kawa/actions/workflows/ci.yml"><img alt="GoFrame CI" src="https://github.com/runreveal/kawa/actions/workflows/ci.yml/badge.svg"/></a>
+    <a href="https://goreportcard.com/report/github.com/runreveal/kawa"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/runreveal/kawa"/></a>
+    <a href="https://github.com/runreveal/kawa"><img alt="License" src="https://img.shields.io/github/license/runreveal/kawa.svg?style=flat"/></a>
+  </div>
 </div>
 
 kawa is an opinionated framework for scalable, reliable stream processing.
