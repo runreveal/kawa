@@ -9,7 +9,7 @@ import (
 
 	"github.com/carlmjohnson/requests"
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/kawa/internal/types"
+	"github.com/runreveal/kawa/cmd/kawad/internal/types"
 	batch "github.com/runreveal/kawa/x/batcher"
 	"golang.org/x/exp/slog"
 )

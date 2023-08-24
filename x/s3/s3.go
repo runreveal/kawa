@@ -1,4 +1,4 @@
-package runreveal
+package s3
 
 import (
 	"bytes"
@@ -13,57 +13,56 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/kawa/internal/types"
 	batch "github.com/runreveal/kawa/x/batcher"
 	"github.com/segmentio/ksuid"
 )
 
-type Option func(*s3)
+type Option func(*S3)
 
 func WithBucketName(bucketName string) Option {
-	return func(s *s3) {
+	return func(s *S3) {
 		s.bucketName = bucketName
 	}
 }
 
 func WithPathPrefix(pathPrefix string) Option {
-	return func(s *s3) {
+	return func(s *S3) {
 		s.pathPrefix = pathPrefix
 	}
 }
 
 func WithBucketRegion(bucketRegion string) Option {
-	return func(s *s3) {
+	return func(s *S3) {
 		s.bucketRegion = bucketRegion
 	}
 }
 
 func WithCustomEndpoint(customEndpoint string) Option {
-	return func(s *s3) {
+	return func(s *S3) {
 		s.customEndpoint = customEndpoint
 	}
 }
 
 func WithAccessKeyID(accessKeyID string) Option {
-	return func(s *s3) {
+	return func(s *S3) {
 		s.accessKeyID = accessKeyID
 	}
 }
 
 func WithAccessSecretKey(accessSecretKey string) Option {
-	return func(s *s3) {
+	return func(s *S3) {
 		s.accessSecretKey = accessSecretKey
 	}
 }
 
 func WithBatchSize(batchSize int) Option {
-	return func(s *s3) {
+	return func(s *S3) {
 		s.batchSize = batchSize
 	}
 }
 
-type s3 struct {
-	batcher *batch.Destination[types.Event]
+type S3 struct {
+	batcher *batch.Destination[[]byte]
 
 	bucketName   string
 	bucketRegion string
@@ -76,22 +75,22 @@ type s3 struct {
 	batchSize int
 }
 
-func New(opts ...Option) *s3 {
-	ret := &s3{}
+func New(opts ...Option) *S3 {
+	ret := &S3{}
 	for _, o := range opts {
 		o(ret)
 	}
 	if ret.batchSize == 0 {
 		ret.batchSize = 100
 	}
-	ret.batcher = batch.NewDestination[types.Event](ret,
+	ret.batcher = batch.NewDestination[[]byte](ret,
 		batch.FlushLength(ret.batchSize),
 		batch.FlushFrequency(5*time.Second),
 	)
 	return ret
 }
 
-func (s *s3) Run(ctx context.Context) error {
+func (s *S3) Run(ctx context.Context) error {
 	if s.bucketName == "" {
 		return errors.New("missing bucket name")
 	}
@@ -99,12 +98,12 @@ func (s *s3) Run(ctx context.Context) error {
 	return s.batcher.Run(ctx)
 }
 
-func (s *s3) Send(ctx context.Context, ack func(), msgs ...kawa.Message[types.Event]) error {
+func (s *S3) Send(ctx context.Context, ack func(), msgs ...kawa.Message[[]byte]) error {
 	return s.batcher.Send(ctx, ack, msgs...)
 }
 
 // Flush sends the given messages of type kawa.Message[type.Event] to an s3 bucket
-func (s *s3) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error {
+func (s *S3) Flush(ctx context.Context, msgs []kawa.Message[[]byte]) error {
 
 	// We need a handle a variety of arguments specifically the way
 	// they are presented within the config file. If we don't some
@@ -128,7 +127,7 @@ func (s *s3) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error 
 	var buf bytes.Buffer
 	gzipBuffer := gzip.NewWriter(&buf)
 	for _, msg := range msgs {
-		_, err := gzipBuffer.Write(msg.Value.RawLog)
+		_, err := gzipBuffer.Write(msg.Value)
 		if err != nil {
 			return err
 		}

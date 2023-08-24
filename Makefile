@@ -1,4 +1,4 @@
-VERSION := $(shell git describe --tags --always --dirty="_dev")
+VERSION := $(shell git describe --tags --always --dirty="-dev")
 LDFLAGS := -ldflags='-X "main.version=$(VERSION)"'
 
 GOTESTFLAGS = -race
