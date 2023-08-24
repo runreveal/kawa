@@ -59,7 +59,7 @@ This is nascent software, subject to breaking changes as we reach a good
 working set of APIs, interfaces and data models.  Please try it out and help
 shape the direction of the project by giving us feedback!
 
-# Getting started
+# Getting started using Kawad
 
 An example use case might be shipping your nginx logs to s3. Save the following
 config.json, and fill in the config file.
@@ -98,7 +98,7 @@ Run it!
 $ kawa run --config config.json
 ```
 
-# Development & Extending
+# Development & Extension
 
 The source and destination interfaces are designed for simplicity of use and
 implementation.  It should be easy to use the sources and destinations in an
@@ -111,6 +111,14 @@ The easiest way to get started is by using the polling/batch implementations
 for sources/destinations, respectively, since they require less overhead in
 terms of accounting for offset tracking to ensure at-least-once reliable
 processing.
+
+Extensions under the `x` package provide either generic or `[]byte` based
+sources, destinations and utility functions which aren't part of the core
+functionality of kawa.  They're provided for re-use in other applications.
+
+To use them, import them into your program and apply the proper serialization
+techniques relevant to your application.  See examples of this in practice in
+the `cmd/kawad/internal` package, where we use it for system logs.
 
 ## Configure and Run Design Pattern
 
@@ -126,13 +134,13 @@ often, this is the New function for the struct, with required arguments passed
 in first, and options passed in as a variadic functional options slice
 afterwards.  Occasionally, this may involve also implementing a translation
 layer for serialization of the struct from JSON or some other serialization
-format.
+format (see cmd/kawad/config.go for an example of this pattern).
 
 The next stage, "Run", involves implementing the simple Runner interface:
 
-```
+```golang
 type Runner interface {
-    Run(ctx context.Context) error
+	Run(ctx context.Context) error
 }
 ```
 
@@ -148,7 +156,8 @@ destination to be seamlessly integrated into the daemon.
 
 ## Implementing Sources
 
-Sources are things that you read message-oriented data from.
+Sources are things that you read message-oriented data from.  At the most basic
+level, it's a collection of bytes that together represent some discrete event.
 
 ### Polling Source
 
@@ -156,7 +165,7 @@ We recommend implementing polling sources when querying an API, or whenever
 it's easiest to implement a function to periodically get called.  The following
 is the interface which needs to be satisfied to implement a polling source.
 
-```
+```golang
 type Poller[T any] interface {
 	Poll(context.Context, int) ([]kawa.Message[T], func(), error)
 }
@@ -179,7 +188,7 @@ batch being written to some persistent storage.  It handles timeouts, batch size
 and parallel writes at the configuration level so destinations only have to implement
 a single method "Flush".
 
-```
+```golang
 type Flusher[T any] interface {
 	Flush(context.Context, []kawa.Message[T]) error
 }
