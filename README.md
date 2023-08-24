@@ -16,13 +16,13 @@
 
 ---
 
-kawa is an opinionated framework for scalable, reliable stream processing.
+kawa ("Kaa-Wah") is an opinionated framework for scalable, reliable stream processing.
 
-kawa also provides a daemon for collecting system logs and metrics.
+kawad ("Kaa-Wah-Dee") is a daemon for collecting system logs and metrics.
 
 # Installation
 
-## The Daemon
+## Kawad
 
 Find the package for your OS and architecture on the releases page. Download
 that file to the machine, and install somewhere visible on your $path.
@@ -33,7 +33,7 @@ Copy an example config from the examples/ directory, then run it!  There is
 also an example for deploying as a systemd service.  Additionally, we'll have
 kubernetes examples soon.
 
-## The library
+## Kawa
 
 Add the library to your project as you would any other Go library:
 

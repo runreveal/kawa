@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/kawa/internal/types"
+	"github.com/runreveal/kawa/cmd/kawad/internal/types"
 	"github.com/runreveal/kawa/x/multi"
 	"github.com/runreveal/lib/await"
 	"golang.org/x/exp/slog"

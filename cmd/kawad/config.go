@@ -4,13 +4,14 @@ import (
 	"os"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/kawa/internal/destinations"
-	"github.com/runreveal/kawa/internal/destinations/runreveal"
-	s3 "github.com/runreveal/kawa/internal/destinations/s3"
-	"github.com/runreveal/kawa/internal/sources"
-	"github.com/runreveal/kawa/internal/sources/journald"
-	"github.com/runreveal/kawa/internal/sources/syslog"
-	"github.com/runreveal/kawa/internal/types"
+	"github.com/runreveal/kawa/cmd/kawad/internal/destinations/printer"
+	"github.com/runreveal/kawa/cmd/kawad/internal/destinations/runreveal"
+	s3kawad "github.com/runreveal/kawa/cmd/kawad/internal/destinations/s3"
+	"github.com/runreveal/kawa/cmd/kawad/internal/sources/journald"
+	"github.com/runreveal/kawa/cmd/kawad/internal/sources/scanner"
+	"github.com/runreveal/kawa/cmd/kawad/internal/sources/syslog"
+	"github.com/runreveal/kawa/cmd/kawad/internal/types"
+	"github.com/runreveal/kawa/x/s3"
 	"github.com/runreveal/lib/loader"
 	"golang.org/x/exp/slog"
 	// We could register and configure these in a separate package
@@ -46,7 +47,7 @@ type ScannerConfig struct {
 
 func (c *ScannerConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring scanner")
-	return sources.NewScanner(os.Stdin), nil
+	return scanner.NewScanner(os.Stdin), nil
 }
 
 type SyslogConfig struct {
@@ -67,7 +68,7 @@ type PrinterConfig struct {
 
 func (c *PrinterConfig) Configure() (kawa.Destination[types.Event], error) {
 	slog.Info("configuring printer")
-	return destinations.NewPrinter(os.Stdout), nil
+	return printer.NewPrinter(os.Stdout), nil
 }
 
 type RunRevealConfig struct {
@@ -95,7 +96,7 @@ type S3Config struct {
 
 func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
 	slog.Info("configuring s3")
-	return s3.New(
+	return s3kawad.NewS3(
 		s3.WithBucketName(c.BucketName),
 		s3.WithBucketRegion(c.BucketRegion),
 		s3.WithPathPrefix(c.PathPrefix),

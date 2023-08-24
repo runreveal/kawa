@@ -1,4 +1,4 @@
-package sources
+package scanner
 
 import (
 	"bufio"
@@ -6,26 +6,19 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	"time"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/kawa/internal/types"
 )
 
 type Scanner struct {
 	reader io.Reader
-	msgC   chan msgAck
-}
-
-type msgAck struct {
-	msg kawa.Message[types.Event]
-	ack func()
+	msgC   chan kawa.MsgAck[[]byte]
 }
 
 func NewScanner(reader io.Reader) *Scanner {
 	return &Scanner{
 		reader: reader,
-		msgC:   make(chan msgAck),
+		msgC:   make(chan kawa.MsgAck[[]byte]),
 	}
 }
 
@@ -44,15 +37,11 @@ func (s *Scanner) recvLoop(ctx context.Context) error {
 		// upstream to communicate with when consuming an io.Reader.
 		wg.Add(1)
 		select {
-		case s.msgC <- msgAck{
-			msg: kawa.Message[types.Event]{
-				Value: types.Event{
-					Timestamp:  time.Now(),
-					SourceType: "reader",
-					RawLog:     []byte(str),
-				},
+		case s.msgC <- kawa.MsgAck[[]byte]{
+			Msg: kawa.Message[[]byte]{
+				Value: []byte(str),
 			},
-			ack: func() {
+			Ack: func() {
 				wg.Done()
 			},
 		}:
@@ -79,11 +68,11 @@ func (s *Scanner) recvLoop(ctx context.Context) error {
 	return nil
 }
 
-func (s *Scanner) Recv(ctx context.Context) (kawa.Message[types.Event], func(), error) {
+func (s *Scanner) Recv(ctx context.Context) (kawa.Message[[]byte], func(), error) {
 	select {
 	case <-ctx.Done():
-		return kawa.Message[types.Event]{}, nil, ctx.Err()
+		return kawa.Message[[]byte]{}, nil, ctx.Err()
 	case pass := <-s.msgC:
-		return pass.msg, pass.ack, nil
+		return pass.Msg, pass.Ack, nil
 	}
 }
