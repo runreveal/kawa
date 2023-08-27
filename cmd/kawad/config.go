@@ -35,7 +35,7 @@ func init() {
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &PrinterConfig{}
 	})
-	loader.Register("sqs", func() loader.Builder[kawa.Destination[types.Event]] {
+	loader.Register("sqs", func() loader.Builder[kawa.Destination[[]byte]] {
 		return &SQSConfig{}
 	})
 	loader.Register("s3", func() loader.Builder[kawa.Destination[types.Event]] {
@@ -121,7 +121,7 @@ func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
 	), nil
 }
 
-func (c *SQSConfig) Configure() (kawa.Destination[types.Event], error) {
+func (c *SQSConfig) Configure() (kawa.Destination[[]byte], error) {
 	slog.Info("configuring sqs")
 	return sqs.New(
 		sqs.WithQueueURL(c.QueueURL),

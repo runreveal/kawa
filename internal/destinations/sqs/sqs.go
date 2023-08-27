@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	awssqs "github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/kawa/internal/types"
 	batch "github.com/runreveal/kawa/x/batcher"
 	"github.com/segmentio/ksuid"
 )
@@ -49,7 +48,7 @@ func WithBatchSize(batchSize int) Option {
 }
 
 type sqs struct {
-	batcher *batch.Destination[types.Event]
+	batcher *batch.Destination[[]byte]
 
 	queueURL string
 	region   string
@@ -68,7 +67,7 @@ func New(opts ...Option) *sqs {
 	if ret.batchSize == 0 {
 		ret.batchSize = 100
 	}
-	ret.batcher = batch.NewDestination[types.Event](ret,
+	ret.batcher = batch.NewDestination[[]byte](ret,
 		batch.FlushLength(ret.batchSize),
 		batch.FlushFrequency(5*time.Second),
 	)
@@ -83,12 +82,12 @@ func (s *sqs) Run(ctx context.Context) error {
 	return s.batcher.Run(ctx)
 }
 
-func (s *sqs) Send(ctx context.Context, ack func(), msgs ...kawa.Message[types.Event]) error {
+func (s *sqs) Send(ctx context.Context, ack func(), msgs ...kawa.Message[[]byte]) error {
 	return s.batcher.Send(ctx, ack, msgs...)
 }
 
-// Flush sends the given messages of type kawa.Message[type.Event] to an sqs queue
-func (s *sqs) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error {
+// Flush sends the given messages of type kawa.Message[[]byte] to an sqs queue
+func (s *sqs) Flush(ctx context.Context, msgs []kawa.Message[[]byte]) error {
 
 	var config = &aws.Config{}
 	if s.accessKeyID != "" && s.accessSecretKey != "" {
@@ -107,7 +106,7 @@ func (s *sqs) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error
 	for _, msg := range msgs {
 		messageRequest := &awssqs.SendMessageBatchRequestEntry{
 			Id:          aws.String(ksuid.New().String()),
-			MessageBody: aws.String(string(msg.Value.RawLog)),
+			MessageBody: aws.String(string(msg.Value)),
 		}
 		if strings.HasSuffix(s.queueURL, ".fifo") {
 			messageRequest.MessageGroupId = messageRequest.Id
