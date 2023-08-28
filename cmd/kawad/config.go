@@ -4,15 +4,14 @@ import (
 	"os"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/kawa/internal/destinations"
-	"github.com/runreveal/kawa/internal/destinations/mqtt"
-	"github.com/runreveal/kawa/internal/destinations/runreveal"
-	s3 "github.com/runreveal/kawa/internal/destinations/s3"
-	"github.com/runreveal/kawa/internal/sources"
-	"github.com/runreveal/kawa/internal/sources/journald"
-	mqttsrc "github.com/runreveal/kawa/internal/sources/mqtt"
-	"github.com/runreveal/kawa/internal/sources/syslog"
-	"github.com/runreveal/kawa/internal/types"
+	"github.com/runreveal/kawa/cmd/kawad/internal/destinations/printer"
+	"github.com/runreveal/kawa/cmd/kawad/internal/destinations/runreveal"
+	s3kawad "github.com/runreveal/kawa/cmd/kawad/internal/destinations/s3"
+	"github.com/runreveal/kawa/cmd/kawad/internal/sources/journald"
+	"github.com/runreveal/kawa/cmd/kawad/internal/sources/scanner"
+	"github.com/runreveal/kawa/cmd/kawad/internal/sources/syslog"
+	"github.com/runreveal/kawa/cmd/kawad/internal/types"
+	"github.com/runreveal/kawa/x/s3"
 	"github.com/runreveal/lib/loader"
 	"golang.org/x/exp/slog"
 	// We could register and configure these in a separate package
@@ -31,9 +30,6 @@ func init() {
 	loader.Register("journald", func() loader.Builder[kawa.Source[types.Event]] {
 		return &JournaldConfig{}
 	})
-	loader.Register("mqtt", func() loader.Builder[kawa.Source[types.Event]] {
-		return &MQTTSrcConfig{}
-	})
 
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &PrinterConfig{}
@@ -44,9 +40,6 @@ func init() {
 	loader.Register("runreveal", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &RunRevealConfig{}
 	})
-	loader.Register("mqtt", func() loader.Builder[kawa.Destination[types.Event]] {
-		return &MQTTConfig{}
-	})
 }
 
 type ScannerConfig struct {
@@ -54,7 +47,7 @@ type ScannerConfig struct {
 
 func (c *ScannerConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring scanner")
-	return sources.NewScanner(os.Stdin), nil
+	return scanner.NewScanner(os.Stdin), nil
 }
 
 type SyslogConfig struct {
@@ -75,7 +68,7 @@ type PrinterConfig struct {
 
 func (c *PrinterConfig) Configure() (kawa.Destination[types.Event], error) {
 	slog.Info("configuring printer")
-	return destinations.NewPrinter(os.Stdout), nil
+	return printer.NewPrinter(os.Stdout), nil
 }
 
 type RunRevealConfig struct {
@@ -86,61 +79,6 @@ func (c *RunRevealConfig) Configure() (kawa.Destination[types.Event], error) {
 	slog.Info("configuring runreveal")
 	return runreveal.New(
 		runreveal.WithWebhookURL(c.WebhookURL),
-	), nil
-}
-
-type MQTTConfig struct {
-	Broker   string `json:"broker"`
-	ClientID string `json:"clientID"`
-	Topic    string `json:"topic"`
-
-	UserName string `json:"userName"`
-	Password string `json:"password"`
-
-	QOS       byte `json:"qos"`
-	Retained  bool `json:"retained"`
-	BatchSize int  `json:"batchSize"`
-}
-
-func (c *MQTTConfig) Configure() (kawa.Destination[types.Event], error) {
-	slog.Info("configuring mqtt")
-	mqttDst := mqtt.New(
-		mqtt.WithBroker(c.Broker),
-		mqtt.WithClientID(c.ClientID),
-		mqtt.WithQOS(c.QOS),
-		mqtt.WithBatchSize(c.BatchSize),
-		mqtt.WithTopic(c.Topic),
-		mqtt.WithRetained(c.Retained),
-		mqtt.WithUserName(c.UserName),
-		mqtt.WithPassword(c.Password),
-	)
-
-	return mqttDst, nil
-}
-
-type MQTTSrcConfig struct {
-	Broker   string `json:"broker"`
-	ClientID string `json:"clientID"`
-	Topic    string `json:"topic"`
-
-	UserName string `json:"userName"`
-	Password string `json:"password"`
-
-	QOS       byte `json:"qos"`
-	Retained  bool `json:"retained"`
-	BatchSize int  `json:"batchSize"`
-}
-
-func (c *MQTTSrcConfig) Configure() (kawa.Source[types.Event], error) {
-	slog.Info("configuring mqtt")
-	return mqttsrc.New(
-		mqttsrc.WithBroker(c.Broker),
-		mqttsrc.WithClientID(c.ClientID),
-		mqttsrc.WithQOS(c.QOS),
-		mqttsrc.WithTopic(c.Topic),
-		mqttsrc.WithRetained(c.Retained),
-		mqttsrc.WithUserName(c.UserName),
-		mqttsrc.WithPassword(c.Password),
 	), nil
 }
 
@@ -158,7 +96,7 @@ type S3Config struct {
 
 func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
 	slog.Info("configuring s3")
-	return s3.New(
+	return s3kawad.NewS3(
 		s3.WithBucketName(c.BucketName),
 		s3.WithBucketRegion(c.BucketRegion),
 		s3.WithPathPrefix(c.PathPrefix),

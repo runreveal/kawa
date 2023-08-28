@@ -64,6 +64,22 @@ func (sf SourceFunc[T]) Recv(ctx context.Context) (Message[T], func(), error) {
 	return sf(ctx)
 }
 
+// MsgAck is a utility type which is used to pass a message and it's
+// corresponding ack function through a channel internal to a source or
+// destination
+type MsgAck[T any] struct {
+	Msg Message[T]
+	Ack func()
+}
+
+// Ack is a convenience function for calling the ack function after checking if
+// it's nil.
+func Ack(ack func()) {
+	if ack != nil {
+		ack()
+	}
+}
+
 // Destination defines the abstraction for writing messages to an external
 // entity.  Most notable implementations are queues (Kafka, RabbitMQ, Redis),
 // but anything which is message oriented could be made into a Destination
