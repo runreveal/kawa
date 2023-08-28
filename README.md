@@ -264,7 +264,7 @@ Do not read events from the same topic that an MQTT destination is sending to ot
   "password": "",
   "topic": "kawa/src",
 
-  "qos": 1, // Optional defaults to 0 if not included
+  "qos": 1, // Optional defaults to 1 if not included
   "retained": false, // Optional defaults to false if not included
 }
 ```
@@ -325,9 +325,8 @@ If topic is not supplied, it will default to the wildcard `#`.
   "password": "",
   "topic": "kawa/dest",
 
-  "qos": 1, // Optional defaults to 0 if not included
+  "qos": 1, // Optional defaults to 1 if not included
   "retained": false, // Optional defaults to false if not included
-  "batchSize": 100, // Optional defaults to 100 if not included
 }
 ```
 
