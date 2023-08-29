@@ -5,11 +5,11 @@
   "sources": [
     {
       "type": "syslog",
+      "addr": "0.0.0.0:5514",
       // content-type tells the source how to parse logs received on this
       // instance of syslog. We may explore using the syslog tag to indicate
-      // the schema as well down the line
-      "contentType": "application/json; rrschema=nginx-json",
-      "addr": "0.0.0.0:5514",
+      // the schema as well down the line.
+      "contentType": "application/json; rrtype=nginx-json",
     },
     {
       "type": "journald",
@@ -17,8 +17,14 @@
   ],
   "destinations": [
     {
+      "type": "s3",
+      "bucketName": "the-lumber-mill",
+      "bucketRegion": "us-west-2",
+    },
+    {
       "type": "runreveal",
-      // Replace this webhook URL with your own
+      // Replace this webhook URL with your own, created on https://www.runreveal.com
+      // as a "Kawa" type source
       "webhookURL": "https://example.runreveal.com/sources/kawa/webhook/0123456789",
       // You can also use environment variables by referencing them with a
       // dollar sign. The value must be quoted, start with a dollar sign and be

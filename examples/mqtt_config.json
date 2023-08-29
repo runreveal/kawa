@@ -1,0 +1,32 @@
+{
+  // this is an example config file for kawa
+  // it is parsed using hujson so you can use comments and trailing commas, but
+  // is otherwise identical to JSON
+  "sources": [
+    {
+      "type": "mqtt",
+      "broker": "mqtt://broker.localhost:1883",
+      "clientID": "kawa_src",
+      "userName": "",
+      "password": "",
+      "topic": "kawad/src",
+      "qos": 1, // Optional defaults to 1 if not included
+      "retained": false, // Optional defaults to false if not included
+    },
+  ],
+  "destinations": [
+    {
+      "type": "mqtt",
+      "broker": "mqtt://broker.localhost:1883",
+      "clientID": "kawa_dst",
+      "userName": "",
+      "password": "",
+      "topic": "kawad/dest",
+      "qos": 1, // Optional defaults to 1 if not included
+      "retained": false, // Optional defaults to false if not included
+    },
+    {
+      "type": "printer"
+    }
+  ],
+}

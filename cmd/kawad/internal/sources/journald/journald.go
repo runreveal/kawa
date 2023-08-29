@@ -15,22 +15,17 @@ import (
 	"time"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/kawa/internal/types"
+	"github.com/runreveal/kawa/cmd/kawad/internal/types"
 	"golang.org/x/exp/slog"
 )
 
 type Journald struct {
-	msgC chan msgAck
-}
-
-type msgAck struct {
-	msg kawa.Message[types.Event]
-	ack func()
+	msgC chan kawa.MsgAck[types.Event]
 }
 
 func New() *Journald {
 	return &Journald{
-		msgC: make(chan msgAck),
+		msgC: make(chan kawa.MsgAck[types.Event]),
 	}
 }
 
@@ -116,15 +111,15 @@ func (s *Journald) recvLoop(ctx context.Context) error {
 
 		wg.Add(1)
 		select {
-		case s.msgC <- msgAck{
-			msg: kawa.Message[types.Event]{
+		case s.msgC <- kawa.MsgAck[types.Event]{
+			Msg: kawa.Message[types.Event]{
 				Value: types.Event{
 					Timestamp:  ts,
 					SourceType: "journald",
 					RawLog:     bts,
 				},
 			},
-			ack: func() {
+			Ack: func() {
 				ack(log.Cursor)
 				wg.Done()
 			},
@@ -155,7 +150,7 @@ func (s *Journald) Recv(ctx context.Context) (kawa.Message[types.Event], func(),
 	case <-ctx.Done():
 		return kawa.Message[types.Event]{}, nil, ctx.Err()
 	case pass := <-s.msgC:
-		return pass.msg, pass.ack, nil
+		return pass.Msg, pass.Ack, nil
 	}
 }
 

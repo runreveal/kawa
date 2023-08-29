@@ -7,9 +7,9 @@ before:
     # you may remove this if you don't need go generate
     # - go generate ./...
 builds:
-  - main: ./cmd/kawa
-    id: kawa
-    binary: kawa
+  - main: ./cmd/kawad
+    id: kawad
+    binary: kawad
     goos:
       - linux
       - darwin
@@ -17,16 +17,16 @@ builds:
 
 archives:
   - format: tar.gz
-    id: kawa
+    id: kawad
     # this name template makes the OS and Arch compatible with the results of uname.
     name_template: >-
-      kawa-
+      kawad-
       {{- .Os }}-
       {{- if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     # use zip for windows archives
-    builds: [kawa]
+    builds: [kawad]
     format_overrides:
     - goos: windows
       format: zip
