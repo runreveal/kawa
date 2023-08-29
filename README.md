@@ -246,6 +246,29 @@ Read from stdin. Useful for testing or doing something you probably shouldn't.
 }
 ```
 
+### MQTT
+MQTT will listen on the supplied topic for new events.
+
+broker and clientID are required to receive data.
+clientID must be unique from any other mqtt destinations or sources
+If topic is not supplied, it will default to the wildcard `#`.
+
+Do not read events from the same topic that an MQTT destination is sending to otherwise kawa will create an infinite loop and eventually crash.
+
+```
+{
+  "type": "mqtt",
+  "broker": "mqtt://broker.mqtt:1883",
+  "clientID": "kawa_src",
+  "userName": "",
+  "password": "",
+  "topic": "kawa/src",
+
+  "qos": 1, // Optional defaults to 1 if not included
+  "retained": false, // Optional defaults to false if not included
+}
+```
+
 
 ## Destination Configuration
 
@@ -283,6 +306,27 @@ Printer will print the results to stdout. Useful for testing and development.
 ```
 {
     "type":"printer",
+}
+```
+
+### MQTT
+MQTT will send events to the supplied topic.
+
+broker and clientID are required to send data.
+clientID must be unique from any other mqtt destinations or sources
+If topic is not supplied, it will default to the wildcard `#`.
+
+```
+{
+  "type": "mqtt",
+  "broker": "mqtt://broker.mqtt:1883",
+  "clientID": "kawa_dst",
+  "userName": "",
+  "password": "",
+  "topic": "kawa/dest",
+
+  "qos": 1, // Optional defaults to 1 if not included
+  "retained": false, // Optional defaults to false if not included
 }
 ```
 

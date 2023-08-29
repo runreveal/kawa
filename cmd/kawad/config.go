@@ -4,13 +4,16 @@ import (
 	"os"
 
 	"github.com/runreveal/kawa"
+	mqttDstkawad "github.com/runreveal/kawa/cmd/kawad/internal/destinations/mqtt"
 	"github.com/runreveal/kawa/cmd/kawad/internal/destinations/printer"
 	"github.com/runreveal/kawa/cmd/kawad/internal/destinations/runreveal"
 	s3kawad "github.com/runreveal/kawa/cmd/kawad/internal/destinations/s3"
 	"github.com/runreveal/kawa/cmd/kawad/internal/sources/journald"
+	mqttSrckawad "github.com/runreveal/kawa/cmd/kawad/internal/sources/mqtt"
 	"github.com/runreveal/kawa/cmd/kawad/internal/sources/scanner"
 	"github.com/runreveal/kawa/cmd/kawad/internal/sources/syslog"
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
+	"github.com/runreveal/kawa/x/mqtt"
 	"github.com/runreveal/kawa/x/s3"
 	"github.com/runreveal/lib/loader"
 	"golang.org/x/exp/slog"
@@ -30,6 +33,9 @@ func init() {
 	loader.Register("journald", func() loader.Builder[kawa.Source[types.Event]] {
 		return &JournaldConfig{}
 	})
+	loader.Register("mqtt", func() loader.Builder[kawa.Source[types.Event]] {
+		return &MQTTSrcConfig{}
+	})
 
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &PrinterConfig{}
@@ -40,6 +46,10 @@ func init() {
 	loader.Register("runreveal", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &RunRevealConfig{}
 	})
+	loader.Register("mqtt", func() loader.Builder[kawa.Destination[types.Event]] {
+		return &MQTTDestConfig{}
+	})
+
 }
 
 type ScannerConfig struct {
@@ -113,4 +123,58 @@ type JournaldConfig struct {
 func (c *JournaldConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring journald")
 	return journald.New(), nil
+}
+
+type MQTTDestConfig struct {
+	Broker   string `json:"broker"`
+	ClientID string `json:"clientID"`
+	Topic    string `json:"topic"`
+
+	UserName string `json:"userName"`
+	Password string `json:"password"`
+
+	QOS      byte `json:"qos"`
+	Retained bool `json:"retained"`
+}
+
+func (c *MQTTDestConfig) Configure() (kawa.Destination[types.Event], error) {
+	slog.Info("configuring mqtt dest")
+	mqttDst := mqttDstkawad.NewMQTT(
+		mqtt.WithBroker(c.Broker),
+		mqtt.WithClientID(c.ClientID),
+		mqtt.WithQOS(c.QOS),
+		mqtt.WithTopic(c.Topic),
+		mqtt.WithRetained(c.Retained),
+		mqtt.WithUserName(c.UserName),
+		mqtt.WithPassword(c.Password),
+	)
+
+	return mqttDst, nil
+}
+
+type MQTTSrcConfig struct {
+	Broker   string `json:"broker"`
+	ClientID string `json:"clientID"`
+	Topic    string `json:"topic"`
+
+	UserName string `json:"userName"`
+	Password string `json:"password"`
+
+	QOS      byte `json:"qos"`
+	Retained bool `json:"retained"`
+}
+
+func (c *MQTTSrcConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info("configuring mqtt src")
+	mqttSrc := mqttSrckawad.NewMQTT(
+		mqtt.WithBroker(c.Broker),
+		mqtt.WithClientID(c.ClientID),
+		mqtt.WithQOS(c.QOS),
+		mqtt.WithTopic(c.Topic),
+		mqtt.WithRetained(c.Retained),
+		mqtt.WithUserName(c.UserName),
+		mqtt.WithPassword(c.Password),
+	)
+
+	return mqttSrc, nil
 }
