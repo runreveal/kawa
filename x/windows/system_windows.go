@@ -8,7 +8,6 @@ import (
 	"unsafe"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/kawa/internal/types"
 	"golang.org/x/sys/windows"
 )
 
@@ -150,12 +149,8 @@ func (evtSub *eventSubscription) winAPICallback(action, userContext, event uintp
 					break
 				}
 				msg := msgAck{
-					msg: kawa.Message[types.Event]{
-						Value: types.Event{
-							Timestamp:  xEvt.System.TimeCreated.SystemTime,
-							SourceType: "eventlog",
-							RawLog:     jsonByte,
-						},
+					msg: kawa.Message[[]byte]{
+						Value: jsonByte,
 					},
 					ack: nil,
 				}
