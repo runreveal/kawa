@@ -1,7 +1,6 @@
 package windows
 
 import (
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"syscall"
@@ -143,14 +142,9 @@ func (evtSub *eventSubscription) winAPICallback(action, userContext, event uintp
 			} else {
 				// take dataParsed and convert back to json object for sending to server
 				jsonEvt := xEvt.ToJSONEvent()
-				jsonByte, err := json.Marshal(jsonEvt)
-				if err != nil {
-					evtSub.Errors <- fmt.Errorf("windows_event: failed to marshal event json: %s", err)
-					break
-				}
 				msg := msgAck{
-					msg: kawa.Message[[]byte]{
-						Value: jsonByte,
+					msg: kawa.Message[EventLog]{
+						Value: *jsonEvt,
 					},
 					ack: nil,
 				}

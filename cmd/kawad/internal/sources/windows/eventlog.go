@@ -30,8 +30,7 @@ func (s *EventLog) Recv(ctx context.Context) (kawa.Message[types.Event], func(),
 		return kawa.Message[types.Event]{}, nil, ctx.Err()
 	}
 
-	var msgEvent = &windows.EventLog{}
-	err = json.Unmarshal(msg.Value, msgEvent)
+	rawLog, err := json.Marshal(msg.Value)
 	if err != nil {
 		return kawa.Message[types.Event]{}, nil, ctx.Err()
 	}
@@ -39,9 +38,9 @@ func (s *EventLog) Recv(ctx context.Context) (kawa.Message[types.Event], func(),
 	eventMsg := kawa.Message[types.Event]{
 		Key: msg.Key,
 		Value: types.Event{
-			Timestamp:  msgEvent.System.TimeCreated.SystemTime,
+			Timestamp:  msg.Value.System.TimeCreated.SystemTime,
 			SourceType: "eventlog",
-			RawLog:     msg.Value,
+			RawLog:     rawLog,
 		}, Topic: msg.Topic,
 		Attributes: msg.Attributes,
 	}

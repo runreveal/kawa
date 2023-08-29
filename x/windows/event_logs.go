@@ -32,7 +32,7 @@ type EventLogSource struct {
 }
 
 type msgAck struct {
-	msg kawa.Message[[]byte]
+	msg kawa.Message[EventLog]
 	ack func()
 }
 
@@ -88,10 +88,10 @@ func (s *EventLogSource) recvLoop(ctx context.Context) error {
 	}
 }
 
-func (s *EventLogSource) Recv(ctx context.Context) (kawa.Message[[]byte], func(), error) {
+func (s *EventLogSource) Recv(ctx context.Context) (kawa.Message[EventLog], func(), error) {
 	select {
 	case <-ctx.Done():
-		return kawa.Message[[]byte]{}, nil, ctx.Err()
+		return kawa.Message[EventLog]{}, nil, ctx.Err()
 	case pass := <-s.msgC:
 		return pass.msg, pass.ack, nil
 	}
