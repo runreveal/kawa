@@ -128,7 +128,15 @@ func (evtSub *eventSubscription) winAPICallback(action, userContext, event uintp
 		bufferUsed := uint16(0)
 		propertyCount := uint16(0)
 
-		returnCode, _, err := procEvtRender.Call(0, event, evtRenderEventXML, 4096, uintptr(unsafe.Pointer(&renderSpace[0])), uintptr(unsafe.Pointer(&bufferUsed)), uintptr(unsafe.Pointer(&propertyCount)))
+		returnCode, _, err := procEvtRender.Call(
+			0,
+			event,
+			evtRenderEventXML,
+			4096,
+			uintptr(unsafe.Pointer(&renderSpace[0])),
+			uintptr(unsafe.Pointer(&bufferUsed)),
+			uintptr(unsafe.Pointer(&propertyCount)),
+		)
 
 		if returnCode == 0 {
 			evtSub.Errors <- fmt.Errorf("windows_event: failed to render event data: %s", err)

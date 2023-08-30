@@ -137,8 +137,8 @@ func (xe *xmlEvent) ToJSONEvent() *EventLog {
 
 type EventLog struct {
 	EventDataMap map[string]string      `xml:"EventData" json:"eventDataMap,omitempty"`
-	EventData    []string               `json:"eventData,omitempty"`
-	UserData     map[string]interface{} `json:"userData,omitempty"`
+	EventData    []string               `                json:"eventData,omitempty"`
+	UserData     map[string]interface{} `                json:"userData,omitempty"`
 	System       struct {
 		Provider struct {
 			Name string `xml:"Name,attr" json:"name"`
@@ -165,7 +165,7 @@ type EventLog struct {
 		Security struct {
 			UserID string `xml:"UserID,attr" json:"userId"`
 		} `xml:"Security" json:"security"`
-	} `xml:"System" json:"system"`
+	} `xml:"System"    json:"system"`
 }
 
 // NewJSONEvent creates a new JSONEvent structure
