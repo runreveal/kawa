@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 package windows
 
 import (
@@ -7,19 +10,19 @@ import (
 	"unsafe"
 
 	"github.com/runreveal/kawa"
-	"golang.org/x/sys/windows"
+	sysWindows "golang.org/x/sys/windows"
 )
 
 const (
 	// EvtSubscribeToFutureEvents instructs the
 	// subscription to only receive events that occur
 	// after the subscription has been made
-	EvtSubscribeToFutureEvents = 1
+	evtSubscribeToFutureEvents = 1
 
 	// EvtSubscribeStartAtOldestRecord instructs the
 	// subscription to receive all events (past and future)
 	// that match the query
-	EvtSubscribeStartAtOldestRecord = 2
+	evtSubscribeStartAtOldestRecord = 2
 
 	// evtSubscribeActionError defines a action
 	// code that may be received by the winAPICallback.
@@ -40,7 +43,7 @@ const (
 )
 
 var (
-	modwevtapi = windows.NewLazySystemDLL("wevtapi.dll")
+	modwevtapi = sysWindows.NewLazySystemDLL("wevtapi.dll")
 
 	procEvtSubscribe = modwevtapi.NewProc("EvtSubscribe")
 	procEvtRender    = modwevtapi.NewProc("EvtRender")
@@ -57,7 +60,7 @@ type eventSubscription struct {
 	Errors          chan error
 	Callback        chan msgAck
 
-	winAPIHandle windows.Handle
+	winAPIHandle sysWindows.Handle
 }
 
 // Create will setup an event subscription in the
@@ -68,12 +71,12 @@ func (evtSub *eventSubscription) create() error {
 		return fmt.Errorf("windows_events: subscription already created in kernel")
 	}
 
-	winChannel, err := windows.UTF16PtrFromString(evtSub.Channel)
+	winChannel, err := sysWindows.UTF16PtrFromString(evtSub.Channel)
 	if err != nil {
 		return fmt.Errorf("windows_events: bad channel name: %s", err)
 	}
 
-	winQuery, err := windows.UTF16PtrFromString(evtSub.Query)
+	winQuery, err := sysWindows.UTF16PtrFromString(evtSub.Query)
 	if err != nil {
 		return fmt.Errorf("windows_events: bad query string: %s", err)
 	}
@@ -93,7 +96,7 @@ func (evtSub *eventSubscription) create() error {
 		return fmt.Errorf("windows_events: failed to subscribe to events: %s", err)
 	}
 
-	evtSub.winAPIHandle = windows.Handle(handle)
+	evtSub.winAPIHandle = sysWindows.Handle(handle)
 	return nil
 }
 
@@ -141,7 +144,7 @@ func (evtSub *eventSubscription) winAPICallback(action, userContext, event uintp
 		if returnCode == 0 {
 			evtSub.Errors <- fmt.Errorf("windows_event: failed to render event data: %s", err)
 		} else {
-			dataUTF8 := windows.UTF16ToString(renderSpace)
+			dataUTF8 := sysWindows.UTF16ToString(renderSpace)
 			xEvt := xmlEvent{}
 			err := xml.Unmarshal([]byte(dataUTF8), &xEvt)
 

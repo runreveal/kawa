@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 package windows
 
 import (
@@ -52,7 +55,7 @@ func NewEventLogSource(opts ...Option) *EventLogSource {
 	eventSubscription := &eventSubscription{
 		Channel:         ret.Channel,
 		Query:           ret.Query, //[EventData[Data[@Name='LogonType']='2'] and System[(EventID=4624)]]", // Successful interactive logon events
-		SubscribeMethod: EvtSubscribeToFutureEvents,
+		SubscribeMethod: evtSubscribeToFutureEvents,
 		Errors:          errorsChan,
 		Callback:        msgC,
 	}
