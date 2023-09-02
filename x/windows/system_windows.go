@@ -156,6 +156,7 @@ func (evtSub *eventSubscription) winAPICallback(action, userContext, event uintp
 				msg := msgAck{
 					msg: kawa.Message[EventLog]{
 						Value: *jsonEvt,
+						Topic: evtSub.Channel,
 					},
 					ack: nil,
 				}

@@ -205,12 +205,15 @@ more important than message volume.
  - syslog
  - scanner
  - journald
+ - mqtt
+ - windows event logs
 
 # Supported destinations
 
  - s3 / r2
  - printer
  - runreveal
+ - mqtt
 
 # Configuring the Daemon
 
@@ -267,6 +270,25 @@ Do not read events from the same topic that an MQTT destination is sending to ot
   "qos": 1, // Optional defaults to 1 if not included
   "retained": false, // Optional defaults to false if not included
 }
+```
+
+### Windows Event Logs
+Listen for new windows event logs on the specified channel.
+
+Windows event log collection only works on Windows machines. Use the Windows build to run Kawad on a Windows machine. Kawad will need to be run as an administrator to have access to the event log stream.
+
+The source config needs a required channel and an optional query. 
+The channel is the windows event log full name, e.g. to log the operational logs for the TaskScheduler the channel would be 'Microsoft-Windows-TaskScheduler/Operational'. 
+The query is a filter that can be used to limit the logs that are collected to specific events. View [Microsoft documentation](https://techcommunity.microsoft.com/t5/ask-the-directory-services-team/advanced-xml-filtering-in-the-windows-event-viewer/ba-p/399761) on how filtering works and how to create one to use.
+
+The following example shows how to log every Security event on the machine.
+
+```
+{
+    "type": "eventlog",
+    "channel": "Security",
+    "query": "*"
+  }
 ```
 
 

@@ -17,7 +17,9 @@ type EventLog struct {
 }
 
 func NewEventLog(opts ...windows.Option) *EventLog {
-	return &EventLog{wrapped: windows.NewEventLogSource(opts...)}
+	return &EventLog{
+		wrapped: windows.NewEventLogSource(opts...),
+	}
 }
 
 func (s *EventLog) Run(ctx context.Context) error {
@@ -41,7 +43,8 @@ func (s *EventLog) Recv(ctx context.Context) (kawa.Message[types.Event], func(),
 			Timestamp:  msg.Value.System.TimeCreated.SystemTime,
 			SourceType: "eventlog",
 			RawLog:     rawLog,
-		}, Topic: msg.Topic,
+		},
+		Topic:      msg.Topic,
 		Attributes: msg.Attributes,
 	}
 
