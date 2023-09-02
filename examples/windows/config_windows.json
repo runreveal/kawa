@@ -1,0 +1,15 @@
+{
+  "pprof": "localhost:6060",
+  "sources": [
+    {
+      "type": "eventlog",
+      "channel": "Security",
+      "query": "*", //"*[EventData[Data[@Name='LogonType']='2'] and System[(EventID=4624)]]"
+    },
+  ],
+  "destinations": [
+    {
+      "type": "printer",
+    },
+  ],
+}
