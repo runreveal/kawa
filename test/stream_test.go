@@ -1,14 +1,36 @@
-package kawa
+package kawa_test
 
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/x/memory"
+	"github.com/runreveal/kawa/x/printer"
+	"github.com/runreveal/kawa/x/scanner"
 )
+
+func TestSuite(t *testing.T) {
+	schan := make(chan []byte)
+	src := memory.NewMemSource((<-chan []byte)(schan))
+	dst := memory.NewMemDestination[[]byte]((chan<- []byte)(schan))
+	SuiteTest(t, src, dst)
+
+	reader, writer := io.Pipe()
+	scansrc := scanner.NewScanner(reader)
+	printdst := printer.NewPrinter(writer)
+	time.AfterFunc(100*time.Millisecond, func() {
+		// close the writer to signal the end of the stream
+		// there's no easy way to do this implicitly without making
+		// readers/writers into closers.  Maybe that's worth it?
+		writer.Close()
+	})
+	SuiteTest(t, scansrc, printdst)
+}
 
 type BinString string
 

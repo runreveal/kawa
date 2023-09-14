@@ -154,6 +154,7 @@ loop:
 		case err = <-d.flusherr:
 			break loop
 		case <-ctx.Done():
+			// attempt one final flush?
 			err = ctx.Err()
 			break loop
 		}

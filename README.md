@@ -27,7 +27,7 @@ kawad ("Kaa-Wah-Dee") is a daemon for collecting system logs and metrics.
 Find the package for your OS and architecture on the releases page. Download
 that file to the machine, and install somewhere visible on your $path.
 
-    curl -L https://github.com/runreveal/kawa/releases/download/v0.0.2/kawa-linux-amd64.tar.gz | sudo tar --directory /usr/local/bin -xz
+    curl -L https://github.com/runreveal/kawa/releases/download/<RELEASE_VERSION>/kawa-linux-amd64.tar.gz | sudo tar --directory /usr/local/bin -xz
 
 Copy an example config from the examples/ directory, then run it!  There is
 also an example for deploying as a systemd service.  Additionally, we'll have

@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -30,6 +31,9 @@ func (s *Scanner) recvLoop(ctx context.Context) error {
 	scanner := bufio.NewScanner(s.reader)
 	var wg sync.WaitGroup
 
+	scanner.Split(ScanDelim([]byte("0x0x0x0x0")))
+
+	count := 0
 	for scanner.Scan() {
 		str := scanner.Text()
 		// NOTE: what does it mean to acknolwedge a message was successfully
@@ -48,6 +52,7 @@ func (s *Scanner) recvLoop(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+		count++
 	}
 
 	c := make(chan struct{})
@@ -55,6 +60,7 @@ func (s *Scanner) recvLoop(ctx context.Context) error {
 		wg.Wait()
 		close(c)
 	}()
+
 	select {
 	case <-c:
 	case <-ctx.Done():
@@ -74,5 +80,22 @@ func (s *Scanner) Recv(ctx context.Context) (kawa.Message[[]byte], func(), error
 		return kawa.Message[[]byte]{}, nil, ctx.Err()
 	case pass := <-s.msgC:
 		return pass.Msg, pass.Ack, nil
+	}
+}
+
+func ScanDelim(delim []byte) func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+		if i := bytes.Index(data, delim); i >= 0 {
+			return i + len(delim), data[0:i], nil
+		}
+		// If we're at EOF, we have a final, non-terminated line. Return it.
+		if atEOF {
+			return len(data), data, nil
+		}
+		// Request more data.
+		return 0, nil, nil
 	}
 }
