@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/runreveal/kawa"
@@ -20,8 +21,9 @@ type Opts struct {
 	userName string
 	password string
 
-	qos      byte
-	retained bool
+	qos       byte
+	retained  bool
+	keepAlive time.Duration
 }
 
 func WithBroker(broker string) func(*Opts) {
@@ -43,6 +45,12 @@ func WithTopic(topic string) func(*Opts) {
 		} else {
 			opts.topic = topic
 		}
+	}
+}
+
+func WithKeepAlive(keepAlive time.Duration) func(*Opts) {
+	return func(opts *Opts) {
+		opts.keepAlive = keepAlive
 	}
 }
 
@@ -73,11 +81,7 @@ func WithPassword(password string) func(*Opts) {
 type Destination struct {
 	client MQTT.Client
 	cfg    Opts
-}
-
-type Source struct {
-	msgC chan msgAck
-	cfg  Opts
+	errc   chan error
 }
 
 type msgAck struct {
@@ -98,28 +102,27 @@ func loadOpts(opts []OptFunc) Opts {
 	return cfg
 }
 
-func NewSource(opts ...OptFunc) *Source {
-	cfg := loadOpts(opts)
-
-	ret := &Source{
-		msgC: make(chan msgAck),
-		cfg:  cfg,
-	}
-
-	return ret
-}
-
-func NewDestination(opts ...OptFunc) *Destination {
+func NewDestination(opts ...OptFunc) (*Destination, error) {
 	cfg := loadOpts(opts)
 	ret := &Destination{
-		cfg: cfg,
+		cfg:  cfg,
+		errc: make(chan error),
 	}
 
-	return ret
+	connLost := func(client MQTT.Client, err error) {
+		ret.errc <- err
+	}
+
+	var err error
+	ret.client, err = clientConnect(cfg, connLost)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
 }
 
 func clientConnect(opts Opts, onLost MQTT.ConnectionLostHandler) (MQTT.Client, error) {
-
 	if opts.broker == "" {
 		return nil, errors.New("mqtt: missing broker")
 	}
@@ -127,7 +130,11 @@ func clientConnect(opts Opts, onLost MQTT.ConnectionLostHandler) (MQTT.Client, e
 		return nil, errors.New("mqtt: missing clientID")
 	}
 
-	clientOpts := MQTT.NewClientOptions().AddBroker(opts.broker).SetClientID(opts.clientID).SetConnectionLostHandler(onLost)
+	clientOpts := MQTT.NewClientOptions().
+		AddBroker(opts.broker).
+		SetClientID(opts.clientID).
+		SetConnectionLostHandler(onLost).
+		SetKeepAlive(opts.keepAlive)
 
 	if opts.userName != "" {
 		clientOpts = clientOpts.SetUsername(opts.userName)
@@ -136,6 +143,7 @@ func clientConnect(opts Opts, onLost MQTT.ConnectionLostHandler) (MQTT.Client, e
 		clientOpts = clientOpts.SetPassword(opts.password)
 	}
 
+	fmt.Printf("Opts: %+v\n", clientOpts)
 	client := MQTT.NewClient(clientOpts)
 
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
@@ -147,35 +155,17 @@ func clientConnect(opts Opts, onLost MQTT.ConnectionLostHandler) (MQTT.Client, e
 
 func (dest *Destination) Run(ctx context.Context) error {
 	var err error
-	errc := make(chan error)
-
-	connLost := func(client MQTT.Client, err error) {
-		errc <- err
+	select {
+	case err = <-dest.errc:
+	case <-ctx.Done():
+		err = ctx.Err()
 	}
-
-	dest.client, err = clientConnect(dest.cfg, connLost)
-	if err != nil {
-		return err
-	}
-
-loop:
-	for {
-		select {
-		case err = <-errc:
-			break loop
-		case <-ctx.Done():
-			err = ctx.Err()
-			break loop
-		}
-	}
-
 	dest.client.Disconnect(1000)
 	return err
 }
 
 func (dest *Destination) Send(ctx context.Context, ack func(), msgs ...kawa.Message[[]byte]) error {
 	for _, msg := range msgs {
-
 		token := dest.client.Publish(dest.cfg.topic, dest.cfg.qos, dest.cfg.retained, string(msg.Value))
 		token.Wait()
 		if token.Error() != nil {
@@ -185,13 +175,40 @@ func (dest *Destination) Send(ctx context.Context, ack func(), msgs ...kawa.Mess
 	return nil
 }
 
+type Source struct {
+	msgC   chan msgAck
+	cfg    Opts
+	errc   chan error
+	client MQTT.Client
+}
+
+func NewSource(opts ...OptFunc) (*Source, error) {
+	cfg := loadOpts(opts)
+
+	ret := &Source{
+		msgC: make(chan msgAck),
+		cfg:  cfg,
+		errc: make(chan error),
+	}
+
+	connLost := func(client MQTT.Client, err error) {
+		ret.errc <- err
+	}
+
+	var err error
+	ret.client, err = clientConnect(cfg, connLost)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
 func (src *Source) Run(ctx context.Context) error {
 	return src.recvLoop(ctx)
 }
 
 func (src *Source) recvLoop(ctx context.Context) error {
-	errc := make(chan error)
-
 	newMessage := func(client MQTT.Client, message MQTT.Message) {
 		select {
 		case src.msgC <- msgAck{
@@ -207,32 +224,20 @@ func (src *Source) recvLoop(ctx context.Context) error {
 		}
 	}
 
-	connLost := func(client MQTT.Client, err error) {
-		errc <- err
-	}
-
-	client, err := clientConnect(src.cfg, connLost)
-	if err != nil {
-		return err
-	}
-
-	token := client.Subscribe(src.cfg.topic, src.cfg.qos, newMessage)
+	token := src.client.Subscribe(src.cfg.topic, src.cfg.qos, newMessage)
 	token.Wait()
 	if token.Error() != nil {
 		return fmt.Errorf("mqtt subscribe error: %s", token.Error())
 	}
 
-	defer client.Unsubscribe(src.cfg.topic)
-	defer client.Disconnect(250)
+	defer src.client.Unsubscribe(src.cfg.topic)
+	defer src.client.Disconnect(250)
 
-	for {
-		select {
-		// case <-time.After(60 * time.Second):
-		case err := <-errc:
-			return err
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+	select {
+	case err := <-src.errc:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 

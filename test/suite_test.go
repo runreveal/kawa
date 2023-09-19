@@ -79,10 +79,13 @@ func SuiteTest(t *testing.T, src kawa.Source[[]byte], dst kawa.Destination[[]byt
 		<-ctx.Done()
 		return nil
 	})
+
 	ctx, cncl := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cncl()
+
 	err := wait.Run(ctx)
 	assert.NoError(t, err)
+
 	for i := range seen {
 		assert.True(t, seen[i], "we should have seen all messages")
 	}

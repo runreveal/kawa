@@ -139,7 +139,7 @@ type MQTTDestConfig struct {
 
 func (c *MQTTDestConfig) Configure() (kawa.Destination[types.Event], error) {
 	slog.Info("configuring mqtt dest")
-	mqttDst := mqttDstkawad.NewMQTT(
+	return mqttDstkawad.NewMQTT(
 		mqtt.WithBroker(c.Broker),
 		mqtt.WithClientID(c.ClientID),
 		mqtt.WithQOS(c.QOS),
@@ -148,8 +148,6 @@ func (c *MQTTDestConfig) Configure() (kawa.Destination[types.Event], error) {
 		mqtt.WithUserName(c.UserName),
 		mqtt.WithPassword(c.Password),
 	)
-
-	return mqttDst, nil
 }
 
 type MQTTSrcConfig struct {
@@ -166,7 +164,7 @@ type MQTTSrcConfig struct {
 
 func (c *MQTTSrcConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring mqtt src")
-	mqttSrc := mqttSrckawad.NewMQTT(
+	return mqttSrckawad.NewMQTT(
 		mqtt.WithBroker(c.Broker),
 		mqtt.WithClientID(c.ClientID),
 		mqtt.WithQOS(c.QOS),
@@ -175,6 +173,4 @@ func (c *MQTTSrcConfig) Configure() (kawa.Source[types.Event], error) {
 		mqtt.WithUserName(c.UserName),
 		mqtt.WithPassword(c.Password),
 	)
-
-	return mqttSrc, nil
 }
