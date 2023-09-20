@@ -13,8 +13,12 @@ type MQTT struct {
 	wrapped *mqtt.Source
 }
 
-func NewMQTT(opts ...mqtt.OptFunc) *MQTT {
-	return &MQTT{wrapped: mqtt.NewSource(opts...)}
+func NewMQTT(opts ...mqtt.OptFunc) (*MQTT, error) {
+	src, err := mqtt.NewSource(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &MQTT{wrapped: src}, nil
 }
 
 func (s *MQTT) Run(ctx context.Context) error {

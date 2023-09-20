@@ -1,6 +1,18 @@
 ---
 version: '2'
 services:
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    command: mosquitto -c /mosquitto-no-auth.conf
+    ports:
+      - "1883:1883" # Unencrypted MQTT
+      - "9001:9001" # WebSocket
+    volumes:
+      # - /mosquitto/config
+      - /mosquitto/data
+      - /mosquitto/log
+
   zookeeper:
     image: confluentinc/cp-zookeeper:6.2.1
     hostname: zookeeper

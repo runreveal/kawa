@@ -1,14 +1,62 @@
-package kawa
+package kawa_test
 
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/x/memory"
+	"github.com/runreveal/kawa/x/mqtt"
+
+	"github.com/runreveal/kawa/x/printer"
+	"github.com/runreveal/kawa/x/scanner"
+	"github.com/segmentio/ksuid"
+	"github.com/stretchr/testify/require"
 )
+
+func TestSuite(t *testing.T) {
+	schan := make(chan []byte)
+	src := memory.NewMemSource((<-chan []byte)(schan))
+	dst := memory.NewMemDestination[[]byte]((chan<- []byte)(schan))
+	SuiteTest(t, src, dst)
+
+	reader, writer := io.Pipe()
+	scansrc := scanner.NewScanner(reader)
+	printdst := printer.NewPrinter(writer)
+	time.AfterFunc(100*time.Millisecond, func() {
+		// close the writer to signal the end of the stream
+		// there's no easy way to do this implicitly without making
+		// readers/writers into closers.  Maybe that's worth it?
+		writer.Close()
+	})
+	SuiteTest(t, scansrc, printdst)
+}
+
+func TestMQTT(t *testing.T) {
+	mqttOpts := []mqtt.OptFunc{
+		mqtt.WithBroker("mqtt://localhost:1883"),
+		mqtt.WithTopic("kawa/topic"),
+		mqtt.WithKeepAlive(5 * time.Second),
+		mqtt.WithQOS(2),
+	}
+
+	// mqttSrc.ERROR = log.New(os.Stdout, "[ERROR] ", 0)
+	// mqttSrc.CRITICAL = log.New(os.Stdout, "[CRIT] ", 0)
+	// mqttSrc.WARN = log.New(os.Stdout, "[WARN]  ", 0)
+	// mqttSrc.DEBUG = log.New(os.Stdout, "[DEBUG] ", 0)
+
+	mqttsrc, err := mqtt.NewSource(append(mqttOpts, mqtt.WithClientID(ksuid.New().String()))...)
+	require.NoError(t, err, "source create should not error")
+	mqttdst, err := mqtt.NewDestination(append(mqttOpts, mqtt.WithClientID(ksuid.New().String()))...)
+	require.NoError(t, err, "dest create should not error")
+	SuiteTest(t, mqttsrc, mqttdst)
+}
+
+// Old tests
 
 type BinString string
 

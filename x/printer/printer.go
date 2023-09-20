@@ -2,7 +2,6 @@ package printer
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/runreveal/kawa"
@@ -18,7 +17,9 @@ func NewPrinter(writer io.Writer) *Printer {
 
 func (p *Printer) Send(ctx context.Context, ack func(), msg ...kawa.Message[[]byte]) error {
 	for _, m := range msg {
-		_, err := fmt.Fprintf(p.writer, "%s\n", m.Value)
+		toSend := append(m.Value, []byte("0x0x0x0x0")...)
+
+		_, err := p.writer.Write(toSend)
 		if err != nil {
 			return err
 		}
