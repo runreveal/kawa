@@ -18,15 +18,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSuite(t *testing.T) {
+func TestMem(t *testing.T) {
 	schan := make(chan []byte)
 	src := memory.NewMemSource((<-chan []byte)(schan))
 	dst := memory.NewMemDestination[[]byte]((chan<- []byte)(schan))
 	SuiteTest(t, src, dst)
+}
 
+func TestIO(t *testing.T) {
 	reader, writer := io.Pipe()
-	scansrc := scanner.NewScanner(reader)
-	printdst := printer.NewPrinter(writer)
+	// Delim should be a string of bytes which is unlikely occur randomly
+	scansrc := scanner.NewScanner(reader, scanner.WithDelim([]byte("0x0x0x0x0")))
+	printdst := printer.NewPrinter(writer, printer.WithDelim([]byte("0x0x0x0x0")))
 	time.AfterFunc(100*time.Millisecond, func() {
 		// close the writer to signal the end of the stream
 		// there's no easy way to do this implicitly without making
