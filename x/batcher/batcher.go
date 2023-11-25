@@ -121,7 +121,7 @@ func (d *Destination[T]) Run(ctx context.Context) error {
 	epochC := make(chan uint64)
 	setTimer := true
 
-	ctx, cancel := context.WithCancelCause(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 
 loop:
 	for {
@@ -157,13 +157,12 @@ loop:
 		case err = <-d.flusherr:
 			break loop
 		case <-ctx.Done():
-			// attempt one final flush?
-			err = ctx.Err()
+			// should we attempt one final flush?
 			break loop
 		}
 	}
 
-	cancel(err)
+	cancel()
 
 	// Wait for in-flight flushes to finish
 	// This must happen in the same goroutine as flushwg.Add
