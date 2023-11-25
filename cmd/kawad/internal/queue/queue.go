@@ -13,21 +13,31 @@ import (
 
 type Option func(*Queue)
 
-func WithSources(srcs []kawa.Source[types.Event]) Option {
+type Source struct {
+	Name   string
+	Source kawa.Source[types.Event]
+}
+
+type Destination struct {
+	Name        string
+	Destination kawa.Destination[types.Event]
+}
+
+func WithSources(srcs map[string]Source) Option {
 	return func(q *Queue) {
 		q.Sources = srcs
 	}
 }
 
-func WithDestinations(dsts []kawa.Destination[types.Event]) Option {
+func WithDestinations(dsts map[string]Destination) Option {
 	return func(q *Queue) {
 		q.Destinations = dsts
 	}
 }
 
 type Queue struct {
-	Sources      []kawa.Source[types.Event]
-	Destinations []kawa.Destination[types.Event]
+	Sources      map[string]Source
+	Destinations map[string]Destination
 }
 
 var (
@@ -59,30 +69,27 @@ func (q *Queue) Run(ctx context.Context) error {
 	if err := q.Validate(); err != nil {
 		return err
 	}
-
 	w := await.New(await.WithSignals)
 
+	var srcs []kawa.Source[types.Event]
 	for _, s := range q.Sources {
-		if r, ok := s.(interface {
-			Run(context.Context) error
-		}); ok {
-			w.Add(r.Run)
+		if r, ok := s.Source.(await.Runner); ok {
+			w.AddNamed(r, s.Name)
 		}
+		srcs = append(srcs, s.Source)
 	}
 
-	for _, s := range q.Destinations {
-		if r, ok := s.(interface {
-			Run(context.Context) error
-		}); ok {
-			w.Add(r.Run)
+	var dsts []kawa.Destination[types.Event]
+	for _, d := range q.Destinations {
+		if r, ok := d.Destination.(await.Runner); ok {
+			w.AddNamed(r, d.Name)
 		}
+		dsts = append(dsts, d.Destination)
 	}
+	multiDst := multi.NewMultiDestination(dsts)
+	multiSrc := multi.NewMultiSource(srcs)
 
-	multiDst := multi.NewMultiDestination(q.Destinations)
-	// w.Add(multiDst.Run)
-
-	multiSrc := multi.NewMultiSource(q.Sources)
-	w.Add(multiSrc.Run)
+	w.AddNamed(multiSrc, "multi-source")
 
 	p, err := kawa.New(kawa.Config[types.Event, types.Event]{
 		Source:      multiSrc,
@@ -94,10 +101,9 @@ func (q *Queue) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	w.Add(p.Run)
-
+	w.AddNamed(p, "processor")
 	slog.Info("running queue")
 	err = w.Run(ctx)
-	slog.Error("await error", "error", err)
+	slog.Error("stopping", "error", err)
 	return err
 }

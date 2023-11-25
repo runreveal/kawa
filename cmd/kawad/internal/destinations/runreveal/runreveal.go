@@ -28,10 +28,24 @@ func WithHTTPClient(httpc *http.Client) Option {
 	}
 }
 
+func WithBatchSize(size int) Option {
+	return func(r *RunReveal) {
+		r.batchSize = size
+	}
+}
+
+func WithFlushFrequency(t time.Duration) Option {
+	return func(r *RunReveal) {
+		r.flushFreq = t
+	}
+}
+
 type RunReveal struct {
 	httpc   *http.Client
 	batcher *batch.Destination[types.Event]
 
+	batchSize  int
+	flushFreq  time.Duration
 	webhookURL string
 	reqConf    requests.Config
 }
@@ -43,9 +57,18 @@ func New(opts ...Option) *RunReveal {
 	for _, o := range opts {
 		o(ret)
 	}
+
+	if ret.batchSize <= 0 {
+		ret.batchSize = 100
+	}
+	if ret.flushFreq <= 0 {
+		ret.flushFreq = 15 * time.Second
+	}
+
 	ret.batcher = batch.NewDestination[types.Event](ret,
-		batch.FlushLength(25),
-		batch.FlushFrequency(5*time.Second),
+		batch.FlushLength(ret.batchSize),
+		batch.FlushFrequency(ret.flushFreq),
+		batch.FlushParallelism(2),
 	)
 	return ret
 }
@@ -76,6 +99,9 @@ func (r *RunReveal) newReq() *requests.Builder {
 
 // Flush sends the given messages of type kawa.Message[type.Event] to the RunReveal api
 func (r *RunReveal) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error {
+
+	slog.Debug("sending batch to runreveal", "count", len(msgs))
+
 	batch := make([]json.RawMessage, len(msgs))
 	var err error
 	for i, msg := range msgs {
@@ -85,9 +111,11 @@ func (r *RunReveal) Flush(ctx context.Context, msgs []kawa.Message[types.Event])
 			continue
 		}
 	}
+
 	// Send events to the webhookURL using POST
 	err = r.newReq().BodyJSON(batch).Fetch(ctx)
 	if err != nil {
+		slog.Error("error sending batch to runreveal", "err", err)
 		return err
 	}
 	// TODO: retries

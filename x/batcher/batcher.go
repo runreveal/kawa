@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/runreveal/kawa"
+	"golang.org/x/exp/slog"
 )
 
 type Flusher[T any] interface {
@@ -120,6 +121,8 @@ func (d *Destination[T]) Run(ctx context.Context) error {
 	epochC := make(chan uint64)
 	setTimer := true
 
+	ctx, cancel := context.WithCancel(ctx)
+
 loop:
 	for {
 		select {
@@ -135,34 +138,36 @@ loop:
 			d.buf = append(d.buf, msg)
 			if len(d.buf) >= d.flushlen {
 				err = d.flush(ctx)
-				setTimer = true
-				epoch++
 				if err != nil {
 					break loop
 				}
+				setTimer = true
+				epoch++
 			}
 		case tEpoch := <-epochC:
 			// if we haven't flushed yet this epoch, then flush, otherwise ignore
 			if tEpoch == epoch {
 				err = d.flush(ctx)
-				setTimer = true
-				epoch++
 				if err != nil {
 					break loop
 				}
+				setTimer = true
+				epoch++
 			}
 		case err = <-d.flusherr:
 			break loop
 		case <-ctx.Done():
-			// attempt one final flush?
-			err = ctx.Err()
+			// should we attempt one final flush?
 			break loop
 		}
 	}
 
+	cancel()
+
 	// Wait for in-flight flushes to finish
 	// This must happen in the same goroutine as flushwg.Add
 	d.flushwg.Wait()
+
 	return err
 }
 
@@ -170,27 +175,34 @@ func (d *Destination[T]) flush(ctx context.Context) error {
 	select {
 	// Acquire flush slot
 	case d.flushq <- struct{}{}:
-		// TODO: shallow copy?
+		// Have to make a copy so these don't get overwritten
 		msgs := make([]msgAck[T], len(d.buf))
 		copy(msgs, d.buf)
 		// This must happen in the same goroutine as flushwg.Wait
 		// do not push down into doflush
 		d.flushwg.Add(1)
 		go d.doflush(ctx, msgs)
+		// Clear the buffer for the next batch
 		d.buf = d.buf[:0]
+	case err := <-d.flusherr:
+		return err
 	case <-ctx.Done():
-		return ctx.Err()
+		return nil
 	}
 	return nil
 }
 
 func (d *Destination[T]) doflush(ctx context.Context, msgs []msgAck[T]) {
+	// This not ideal.
 	kawaMsgs := make([]kawa.Message[T], 0, len(msgs))
 	for _, m := range msgs {
 		kawaMsgs = append(kawaMsgs, m.msg)
 	}
 
 	err := d.flusher.Flush(ctx, kawaMsgs)
+	if err != nil {
+		slog.Debug("flush err", "error", err)
+	}
 	if err != nil {
 		d.flusherr <- err
 		d.flushwg.Done()

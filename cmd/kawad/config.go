@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/runreveal/kawa"
 	mqttDstkawad "github.com/runreveal/kawa/cmd/kawad/internal/destinations/mqtt"
@@ -36,7 +37,6 @@ func init() {
 	loader.Register("mqtt", func() loader.Builder[kawa.Source[types.Event]] {
 		return &MQTTSrcConfig{}
 	})
-
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &PrinterConfig{}
 	})
@@ -82,13 +82,17 @@ func (c *PrinterConfig) Configure() (kawa.Destination[types.Event], error) {
 }
 
 type RunRevealConfig struct {
-	WebhookURL string `json:"webhookURL"`
+	WebhookURL string        `json:"webhookURL"`
+	BatchSize  int           `json:"batchSize"`
+	FlushFreq  time.Duration `json:"flushFreq"`
 }
 
 func (c *RunRevealConfig) Configure() (kawa.Destination[types.Event], error) {
 	slog.Info("configuring runreveal")
 	return runreveal.New(
 		runreveal.WithWebhookURL(c.WebhookURL),
+		runreveal.WithBatchSize(c.BatchSize),
+		runreveal.WithFlushFrequency(c.FlushFreq),
 	), nil
 }
 

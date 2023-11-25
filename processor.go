@@ -5,13 +5,24 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
+
+var tracer trace.Tracer
+
+func init() {
+	tracer = otel.Tracer("kawa/processor")
+}
 
 type Processor[T1, T2 any] struct {
 	src         Source[T1]
 	dst         Destination[T2]
 	handler     Handler[T1, T2]
 	parallelism int
+	tracing     bool
+	metrics     bool
 }
 
 type Config[T1, T2 any] struct {
@@ -24,11 +35,25 @@ type Option func(*Options)
 
 type Options struct {
 	Parallelism int
+	Tracing     bool
+	Metrics     bool
 }
 
 func Parallelism(n int) func(*Options) {
 	return func(o *Options) {
 		o.Parallelism = n
+	}
+}
+
+func Tracing(b bool) func(*Options) {
+	return func(o *Options) {
+		o.Tracing = b
+	}
+}
+
+func Metrics(b bool) func(*Options) {
+	return func(o *Options) {
+		o.Metrics = b
 	}
 }
 
@@ -41,41 +66,51 @@ func New[T1, T2 any](c Config[T1, T2], opts ...Option) (*Processor[T1, T2], erro
 	if c.Handler == nil {
 		return nil, errors.New("handler required. Have you considered kawa.Pipe?")
 	}
-	p := &Processor[T1, T2]{
-		src:     c.Source,
-		dst:     c.Destination,
-		handler: c.Handler,
-	}
-
 	var op Options
 	for _, o := range opts {
 		o(&op)
 	}
-
-	p.parallelism = op.Parallelism
+	p := &Processor[T1, T2]{
+		src:         c.Source,
+		dst:         c.Destination,
+		handler:     c.Handler,
+		parallelism: op.Parallelism,
+		tracing:     op.Tracing,
+		metrics:     op.Metrics,
+	}
 
 	if p.parallelism < 1 {
 		p.parallelism = 1
 	}
-
 	return p, nil
 }
 
 // handle runs the loop to receive, process and send messages.
 func (p *Processor[T1, T2]) handle(ctx context.Context) error {
 	for {
-		msg, ack, err := p.src.Recv(ctx)
+		ctx, handleSpan := tracer.Start(ctx, "kawa.processor.full")
+
+		rctx, recvSpan := tracer.Start(ctx, "kawa.processor.src.recv")
+		msg, ack, err := p.src.Recv(rctx)
 		if err != nil {
 			return fmt.Errorf("source: %w", err)
 		}
-		msgs, err := p.handler.Handle(ctx, msg)
+		recvSpan.End()
+
+		hctx, hdlSpan := tracer.Start(ctx, "kawa.processor.handler.handle")
+		msgs, err := p.handler.Handle(hctx, msg)
 		if err != nil {
 			return fmt.Errorf("handler: %w", err)
 		}
-		err = p.dst.Send(ctx, ack, msgs...)
+		hdlSpan.End()
+
+		sctx, sendSpan := tracer.Start(ctx, "kawa.processor.dst.send")
+		err = p.dst.Send(sctx, ack, msgs...)
 		if err != nil {
 			return fmt.Errorf("destination: %w", err)
 		}
+		sendSpan.End()
+		handleSpan.End()
 	}
 }
 
@@ -115,7 +150,7 @@ func (p *Processor[T1, T2]) Run(ctx context.Context) error {
 		// All errors are fatal to this worker
 		err = fmt.Errorf("worker: %w", err)
 	}
-	// Stop all the workers in case of error.
+	// Stop all the workers on shutdown.
 	cancel()
 	// TODO: capture errors thrown during shutdown?  if we do this, write local
 	// err first. it represents first seen
