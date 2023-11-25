@@ -3,13 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"net/http/pprof"
 	"os"
 	"path"
 	"path/filepath"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/cmd/kawad/internal/queue"
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
@@ -116,22 +113,22 @@ func NewRunCommand() *cobra.Command {
 
 			w := await.New(await.WithSignals)
 
-			if config.Monitoring.Addr != "" {
-				mux := http.NewServeMux()
-				if config.Monitoring.PProf.Path != "" {
-					prefix := config.Monitoring.PProf.Path
-					http.HandleFunc(prefix, pprof.Index)
-					http.HandleFunc(prefix+"cmdline", pprof.Cmdline)
-					http.HandleFunc(prefix+"profile", pprof.Profile)
-					http.HandleFunc(prefix+"symbol", pprof.Symbol)
-					http.HandleFunc(prefix+"trace", pprof.Trace)
-				}
-				if config.Monitoring.Metrics.Path != "" {
-					mux.Handle(config.Monitoring.Metrics.Path, promhttp.Handler())
-				}
-				server := &http.Server{Addr: config.Monitoring.Addr, Handler: mux}
-				w.AddNamed(await.ListenAndServe(server), "monitoring")
-			}
+			// if config.Monitoring.Addr != "" {
+			// 	mux := http.NewServeMux()
+			// 	if config.Monitoring.PProf.Path != "" {
+			// 		prefix := config.Monitoring.PProf.Path
+			// 		http.HandleFunc(prefix, pprof.Index)
+			// 		http.HandleFunc(prefix+"cmdline", pprof.Cmdline)
+			// 		http.HandleFunc(prefix+"profile", pprof.Profile)
+			// 		http.HandleFunc(prefix+"symbol", pprof.Symbol)
+			// 		http.HandleFunc(prefix+"trace", pprof.Trace)
+			// 	}
+			// 	if config.Monitoring.Metrics.Path != "" {
+			// 		mux.Handle(config.Monitoring.Metrics.Path, promhttp.Handler())
+			// 	}
+			// 	server := &http.Server{Addr: config.Monitoring.Addr, Handler: mux}
+			// 	w.AddNamed(await.ListenAndServe(server), "monitoring")
+			// }
 
 			slog.Info(fmt.Sprintf("config: %+v", config))
 

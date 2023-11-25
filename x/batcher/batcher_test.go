@@ -158,7 +158,7 @@ func TestBatcherErrors(t *testing.T) {
 
 		cancel()
 		err := <-errc
-		assert.EqualError(t, err, "context canceled")
+		assert.NoError(t, err, "should not error on context canceled")
 	})
 
 	t.Run("cancellation works in deadlock", func(t *testing.T) {
@@ -193,5 +193,77 @@ func TestBatcherErrors(t *testing.T) {
 		cancel()
 		err = <-errc
 		assert.EqualError(t, err, "context canceled")
+	})
+
+	t.Run("dont deadlock on errors returned from flush", func(t *testing.T) {
+
+		// This test deadlocks in failure
+		// Should figure out how to write it better
+
+		flushErr := errors.New("flush error")
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			time.Sleep(5 * time.Millisecond)
+			return flushErr
+		}
+		bat := NewDestination[string](FlushFunc[string](ff), FlushLength(2), FlushParallelism(2))
+		errc := make(chan error)
+
+		ctx := context.Background()
+
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		writeMsgs := []kawa.Message[string]{
+			// will be blocked flushing
+			{Value: "hi"},
+			// will be stuck waiting for flush slot
+			{Value: "hello"},
+			// will be stuck waiting to write to msgs in Send
+			{Value: "bonjour"},
+		}
+
+		done := make(chan struct{})
+		err := bat.Send(ctx, func() { close(done) }, writeMsgs...)
+		assert.NoError(t, err)
+
+		err = <-errc
+		assert.ErrorIs(t, err, flushErr)
+	})
+
+	t.Run("dont deadlock on errors returned from flush with length 1", func(t *testing.T) {
+
+		// This test deadlocks in failure
+		// Should figure out how to write it better
+
+		flushErr := errors.New("flush error")
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			time.Sleep(5 * time.Millisecond)
+			return flushErr
+		}
+		bat := NewDestination[string](FlushFunc[string](ff), FlushLength(1), FlushParallelism(2))
+		errc := make(chan error)
+
+		ctx := context.Background()
+
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		writeMsgs := []kawa.Message[string]{
+			// will be blocked flushing
+			{Value: "hi"},
+			// will be stuck waiting for flush slot
+			{Value: "hello"},
+			// will be stuck waiting to write to msgs in Send
+			{Value: "bonjour"},
+		}
+
+		done := make(chan struct{})
+		err := bat.Send(ctx, func() { close(done) }, writeMsgs...)
+		assert.NoError(t, err)
+
+		err = <-errc
+		assert.ErrorIs(t, err, flushErr)
 	})
 }
