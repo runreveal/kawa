@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/runreveal/kawa"
+	"golang.org/x/exp/slog"
 )
 
 type Flusher[T any] interface {
@@ -120,6 +121,8 @@ func (d *Destination[T]) Run(ctx context.Context) error {
 	epochC := make(chan uint64)
 	setTimer := true
 
+	ctx, cancel := context.WithCancelCause(ctx)
+
 loop:
 	for {
 		select {
@@ -160,9 +163,12 @@ loop:
 		}
 	}
 
+	cancel(err)
+
 	// Wait for in-flight flushes to finish
 	// This must happen in the same goroutine as flushwg.Add
 	d.flushwg.Wait()
+
 	return err
 }
 
@@ -178,6 +184,7 @@ func (d *Destination[T]) flush(ctx context.Context) error {
 		d.flushwg.Add(1)
 		go d.doflush(ctx, msgs)
 		d.buf = d.buf[:0]
+
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -191,6 +198,9 @@ func (d *Destination[T]) doflush(ctx context.Context, msgs []msgAck[T]) {
 	}
 
 	err := d.flusher.Flush(ctx, kawaMsgs)
+	if err != nil {
+		slog.Info("flush err", err)
+	}
 	if err != nil {
 		d.flusherr <- err
 		d.flushwg.Done()
