@@ -116,7 +116,7 @@ func (r *RunReveal) Flush(ctx context.Context, msgs []kawa.Message[types.Event])
 	err = r.newReq().BodyJSON(batch).Fetch(ctx)
 	if err != nil {
 		slog.Error("error sending batch to runreveal", "err", err)
-		// return err
+		return err
 	}
 	// TODO: retries
 	return nil
