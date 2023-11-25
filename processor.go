@@ -104,8 +104,6 @@ func (p *Processor[T1, T2]) handle(ctx context.Context) error {
 		}
 		hdlSpan.End()
 
-		EventsProcessed.Inc()
-
 		sctx, sendSpan := tracer.Start(ctx, "kawa.processor.dst.send")
 		err = p.dst.Send(sctx, ack, msgs...)
 		if err != nil {
