@@ -24,15 +24,11 @@ func SuiteTest(t *testing.T, src kawa.Source[[]byte], dst kawa.Destination[[]byt
 		assert.NoError(t, err)
 	}
 
-	if runnner, ok := src.(interface {
-		Run(context.Context) error
-	}); ok {
-		wait.Add(runnner.Run)
+	if runnner, ok := src.(await.Runner); ok {
+		wait.Add(runnner)
 	}
-	if runnner, ok := dst.(interface {
-		Run(context.Context) error
-	}); ok {
-		wait.Add(runnner.Run)
+	if runnner, ok := dst.(await.Runner); ok {
+		wait.Add(runnner)
 	}
 
 	// stdoutDumper := hex.Dumper(os.Stdout)
@@ -41,7 +37,7 @@ func SuiteTest(t *testing.T, src kawa.Source[[]byte], dst kawa.Destination[[]byt
 	// 	stdoutDumper.Write([]byte(line))
 	// }
 
-	wait.Add(func(ctx context.Context) error {
+	wait.Add(await.RunFunc(func(ctx context.Context) error {
 		count := 0
 		for {
 			msg, ack, err := src.Recv(ctx)
@@ -61,9 +57,9 @@ func SuiteTest(t *testing.T, src kawa.Source[[]byte], dst kawa.Destination[[]byt
 			}
 		}
 		return nil
-	})
+	}))
 
-	wait.Add(func(ctx context.Context) error {
+	wait.Add(await.RunFunc(func(ctx context.Context) error {
 		for i := range want {
 			toSend := make([]byte, len(want[i]))
 			copy(toSend, want[i])
@@ -78,7 +74,7 @@ func SuiteTest(t *testing.T, src kawa.Source[[]byte], dst kawa.Destination[[]byt
 		// Wait until the source exits.
 		<-ctx.Done()
 		return nil
-	})
+	}))
 
 	ctx, cncl := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cncl()
