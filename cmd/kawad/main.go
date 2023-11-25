@@ -3,13 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/pprof"
 	"os"
 	"path"
 	"path/filepath"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/cmd/kawad/internal/queue"
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
+	"github.com/runreveal/lib/await"
 	"github.com/runreveal/lib/loader"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
@@ -74,11 +78,21 @@ variety of destinations.`,
 	return rootCmd
 }
 
-type Config struct {
-	Sources      []loader.Loader[kawa.Source[types.Event]]      `json:"sources"`
-	Destinations []loader.Loader[kawa.Destination[types.Event]] `json:"destinations"`
+type MonConfig struct {
+	Addr  string `json:"addr"`
+	PProf struct {
+		Path string `json:"path"`
+	} `json:"pprof"`
+	Metrics struct {
+		Path string `json:"path"`
+	} `json:"metrics"`
+}
 
-	PProfAddr string `json:"pprof"`
+type Config struct {
+	Sources      map[string]loader.Loader[kawa.Source[types.Event]]      `json:"sources"`
+	Destinations map[string]loader.Loader[kawa.Destination[types.Event]] `json:"destinations"`
+
+	Monitoring MonConfig `json:"monitoring"`
 }
 
 // Build the cobra command that handles our command line tool.
@@ -100,30 +114,49 @@ func NewRunCommand() *cobra.Command {
 				return err
 			}
 
+			w := await.New(await.WithSignals)
+
+			if config.Monitoring.Addr != "" {
+				mux := http.NewServeMux()
+				if config.Monitoring.PProf.Path != "" {
+					prefix := config.Monitoring.PProf.Path
+					http.HandleFunc(prefix, pprof.Index)
+					http.HandleFunc(prefix+"cmdline", pprof.Cmdline)
+					http.HandleFunc(prefix+"profile", pprof.Profile)
+					http.HandleFunc(prefix+"symbol", pprof.Symbol)
+					http.HandleFunc(prefix+"trace", pprof.Trace)
+				}
+				if config.Monitoring.Metrics.Path != "" {
+					mux.Handle(config.Monitoring.Metrics.Path, promhttp.Handler())
+				}
+				server := &http.Server{Addr: config.Monitoring.Addr, Handler: mux}
+				w.AddNamed(await.ListenAndServe(server), "monitoring")
+			}
+
 			slog.Info(fmt.Sprintf("config: %+v", config))
 
 			ctx := context.Background()
-			srcs := []kawa.Source[types.Event]{}
-			for _, v := range config.Sources {
+			srcs := map[string]queue.Source{}
+			for k, v := range config.Sources {
 				src, err := v.Configure()
 				if err != nil {
 					return err
 				}
-				srcs = append(srcs, src)
+				srcs[k] = queue.Source{Name: k, Source: src}
 			}
 
-			dsts := []kawa.Destination[types.Event]{}
-			for _, v := range config.Destinations {
+			dsts := map[string]queue.Destination{}
+			for k, v := range config.Destinations {
 				dst, err := v.Configure()
 				if err != nil {
 					return err
 				}
-				dsts = append(dsts, dst)
+				dsts[k] = queue.Destination{Name: k, Destination: dst}
 			}
 
 			q := queue.New(queue.WithSources(srcs), queue.WithDestinations(dsts))
-
-			err = q.Run(ctx)
+			w.AddNamed(q, "queue")
+			err = w.Run(ctx)
 			slog.Error(fmt.Sprintf("closing: %+v", err))
 			return err
 		},

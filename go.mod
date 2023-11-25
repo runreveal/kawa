@@ -7,7 +7,7 @@ require (
 	github.com/carlmjohnson/requests v0.23.4
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/pkg/errors v0.9.1
-	github.com/runreveal/lib/await v0.0.0-20230725052751-59dc2931534f
+	github.com/runreveal/lib/await v0.0.0-20231125014632-fb732b616d27
 	github.com/runreveal/lib/loader v0.0.0-20230725052751-59dc2931534f
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spf13/cobra v1.7.0

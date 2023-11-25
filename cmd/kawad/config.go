@@ -36,7 +36,6 @@ func init() {
 	loader.Register("mqtt", func() loader.Builder[kawa.Source[types.Event]] {
 		return &MQTTSrcConfig{}
 	})
-
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &PrinterConfig{}
 	})

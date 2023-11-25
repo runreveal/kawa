@@ -23,6 +23,10 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/runreveal/lib/await v0.0.0-20230725052751-59dc2931534f h1:nlNbLSBVKwXbMi/6wcmNa5NEPbcmq7XFmfp9kHJOVy8=
 github.com/runreveal/lib/await v0.0.0-20230725052751-59dc2931534f/go.mod h1:Gyj90y+175aa23yMbbml4zvGuIZj32GOe3qx7wMRgoo=
+github.com/runreveal/lib/await v0.0.0-20231125002013-a6e4f53a7cf3 h1:F0fQLwfGdbk0UhQ1dcM5qyViDMn05Q5odRPf8SgaAw8=
+github.com/runreveal/lib/await v0.0.0-20231125002013-a6e4f53a7cf3/go.mod h1:Gyj90y+175aa23yMbbml4zvGuIZj32GOe3qx7wMRgoo=
+github.com/runreveal/lib/await v0.0.0-20231125014632-fb732b616d27 h1:utfCzMxw9cJZqrpbunKCa/0epOGT2eb+UyoCSBQOnh8=
+github.com/runreveal/lib/await v0.0.0-20231125014632-fb732b616d27/go.mod h1:Gyj90y+175aa23yMbbml4zvGuIZj32GOe3qx7wMRgoo=
 github.com/runreveal/lib/loader v0.0.0-20230725052751-59dc2931534f h1:I/Zn4wgNlLuuOazwRZxtyETyFqzK3Msv8p97ThufwBE=
 github.com/runreveal/lib/loader v0.0.0-20230725052751-59dc2931534f/go.mod h1:VMK+PpomdU6O4qcwkWSG+anCBcH0RkA00VWOZq38Diw=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
