@@ -92,6 +92,9 @@ func (s *Journald) recvLoop(ctx context.Context) error {
 	scanner := bufio.NewScanner(stdout)
 	var wg sync.WaitGroup
 
+	slog.Info("reading journald")
+
+loop:
 	for scanner.Scan() {
 		bts := make([]byte, len(scanner.Bytes()))
 		copy(bts, scanner.Bytes())
@@ -125,22 +128,26 @@ func (s *Journald) recvLoop(ctx context.Context) error {
 			},
 		}:
 		case <-ctx.Done():
-			return ctx.Err()
+			break loop
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("scanning: %+w", err)
+	}
+
+	slog.Info("waiting for journald to exit")
 
 	c := make(chan struct{})
 	go func() {
 		wg.Wait()
 		close(c)
 	}()
+
 	select {
+	// We've received all the logs
 	case <-c:
 	case <-ctx.Done():
 		return ctx.Err()
-	}
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("scanning: %+w", err)
 	}
 	return cmd.Wait()
 }

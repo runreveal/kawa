@@ -85,6 +85,7 @@ func (r *RunReveal) Flush(ctx context.Context, msgs []kawa.Message[types.Event])
 			continue
 		}
 	}
+
 	// Send events to the webhookURL using POST
 	err = r.newReq().BodyJSON(batch).Fetch(ctx)
 	if err != nil {

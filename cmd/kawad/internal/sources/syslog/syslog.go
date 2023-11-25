@@ -45,13 +45,16 @@ func (s *SyslogSource) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	done := make(chan struct{})
 	go func() {
 		s.server.Wait()
 		close(done)
 	}()
+
 	select {
 	case <-ctx.Done():
+		slog.Info("stopping syslog server")
 		err := s.server.Kill()
 		return err
 	case <-done:
