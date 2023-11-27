@@ -158,14 +158,14 @@ func TestBatcherErrors(t *testing.T) {
 
 		cancel()
 		err := <-errc
-		assert.NoError(t, err, "should not error on context canceled")
+		assert.ErrorIs(t, err, context.Canceled, "should return context canceled")
 	})
 
 	t.Run("cancellation works in deadlock", func(t *testing.T) {
 
 		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
 			<-c.Done()
-			return c.Err()
+			return nil
 		}
 		bat := NewDestination[string](FlushFunc[string](ff), FlushLength(1))
 
@@ -192,7 +192,7 @@ func TestBatcherErrors(t *testing.T) {
 
 		cancel()
 		err = <-errc
-		assert.EqualError(t, err, "context canceled")
+		assert.ErrorIs(t, err, context.Canceled, "should return context canceled")
 	})
 
 	t.Run("dont deadlock on errors returned from flush", func(t *testing.T) {
