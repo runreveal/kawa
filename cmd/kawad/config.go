@@ -17,7 +17,7 @@ import (
 	"github.com/runreveal/kawa/x/mqtt"
 	"github.com/runreveal/kawa/x/s3"
 	"github.com/runreveal/lib/loader"
-	"golang.org/x/exp/slog"
+	"log/slog"
 	// We could register and configure these in a separate package
 	// using the init() function.
 	// That would make it easy to "dynamically" enable and disable them at

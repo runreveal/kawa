@@ -9,7 +9,7 @@ import (
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
 	"github.com/runreveal/kawa/x/windows"
 	"github.com/runreveal/lib/loader"
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 func init() {

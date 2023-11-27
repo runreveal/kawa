@@ -16,7 +16,7 @@ import (
 
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 type Journald struct {

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/runreveal/kawa"
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 type Flusher[T any] interface {

@@ -11,7 +11,7 @@ import (
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
 	batch "github.com/runreveal/kawa/x/batcher"
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 type Option func(*RunReveal)
