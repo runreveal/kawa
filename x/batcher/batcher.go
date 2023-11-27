@@ -109,7 +109,7 @@ func (d *Destination[T]) Send(ctx context.Context, ack func(), msgs ...kawa.Mess
 		case d.messages <- msgAck[T]{msg: m, ack: callMe}:
 		case <-ctx.Done():
 			// TODO: one more flush?
-			return nil
+			return ctx.Err()
 		}
 	}
 
@@ -158,7 +158,7 @@ loop:
 		case err = <-d.flusherr:
 			break loop
 		case <-ctx.Done():
-			// TODO: one more flush?
+			err = ctx.Err()
 			break loop
 		}
 	}
@@ -189,7 +189,7 @@ func (d *Destination[T]) flush(ctx context.Context) error {
 		return err
 	case <-ctx.Done():
 		// TODO: one more flush?
-		return nil
+		return ctx.Err()
 	}
 	return nil
 }

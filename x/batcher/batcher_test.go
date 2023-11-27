@@ -158,7 +158,7 @@ func TestBatcherErrors(t *testing.T) {
 
 		cancel()
 		err := <-errc
-		assert.NoError(t, err, "should not error on context canceled")
+		assert.ErrorIs(t, err, context.Canceled, "should return context canceled")
 	})
 
 	t.Run("cancellation works in deadlock", func(t *testing.T) {
@@ -192,7 +192,7 @@ func TestBatcherErrors(t *testing.T) {
 
 		cancel()
 		err = <-errc
-		assert.NoError(t, err, "when context is canceled, it should not error")
+		assert.ErrorIs(t, err, context.Canceled, "should return context canceled")
 	})
 
 	t.Run("dont deadlock on errors returned from flush", func(t *testing.T) {
