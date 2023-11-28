@@ -7,8 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/runreveal/kawa"
 	"log/slog"
+
+	"github.com/runreveal/kawa"
 )
 
 type Option func(*EventLogSource)

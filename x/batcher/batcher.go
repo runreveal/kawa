@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/runreveal/kawa"
 	"log/slog"
+
+	"github.com/runreveal/kawa"
 )
 
 type Flusher[T any] interface {

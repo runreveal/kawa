@@ -14,9 +14,10 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
-	"log/slog"
 )
 
 type Journald struct {

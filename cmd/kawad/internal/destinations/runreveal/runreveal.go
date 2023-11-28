@@ -7,11 +7,12 @@ import (
 	"net/http"
 	"time"
 
+	"log/slog"
+
 	"github.com/carlmjohnson/requests"
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
 	batch "github.com/runreveal/kawa/x/batcher"
-	"log/slog"
 )
 
 type Option func(*RunReveal)
