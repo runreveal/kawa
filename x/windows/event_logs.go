@@ -7,8 +7,9 @@ import (
 	"context"
 	"time"
 
+	"log/slog"
+
 	"github.com/runreveal/kawa"
-	"golang.org/x/exp/slog"
 )
 
 type Option func(*EventLogSource)

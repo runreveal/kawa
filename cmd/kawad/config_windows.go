@@ -4,12 +4,13 @@
 package main
 
 import (
+	"log/slog"
+
 	"github.com/runreveal/kawa"
 	windowskawad "github.com/runreveal/kawa/cmd/kawad/internal/sources/windows"
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
 	"github.com/runreveal/kawa/x/windows"
 	"github.com/runreveal/lib/loader"
-	"golang.org/x/exp/slog"
 )
 
 func init() {

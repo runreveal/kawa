@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"log/slog"
+
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
-	"golang.org/x/exp/slog"
 	"gopkg.in/mcuadros/go-syslog.v2"
 )
 

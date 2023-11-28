@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/runreveal/kawa"
-	"golang.org/x/exp/slog"
 )
 
 type Flusher[T any] interface {

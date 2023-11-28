@@ -7,13 +7,14 @@ import (
 	"path"
 	"path/filepath"
 
+	"log/slog"
+
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/cmd/kawad/internal/queue"
 	"github.com/runreveal/kawa/cmd/kawad/internal/types"
 	"github.com/runreveal/lib/await"
 	"github.com/runreveal/lib/loader"
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/slog"
 )
 
 var (

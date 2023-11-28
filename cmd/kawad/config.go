@@ -4,6 +4,8 @@ import (
 	"os"
 	"time"
 
+	"log/slog"
+
 	"github.com/runreveal/kawa"
 	mqttDstkawad "github.com/runreveal/kawa/cmd/kawad/internal/destinations/mqtt"
 	"github.com/runreveal/kawa/cmd/kawad/internal/destinations/printer"
@@ -17,7 +19,6 @@ import (
 	"github.com/runreveal/kawa/x/mqtt"
 	"github.com/runreveal/kawa/x/s3"
 	"github.com/runreveal/lib/loader"
-	"golang.org/x/exp/slog"
 	// We could register and configure these in a separate package
 	// using the init() function.
 	// That would make it easy to "dynamically" enable and disable them at
