@@ -124,10 +124,10 @@ func TestBatcherErrors(t *testing.T) {
 	var ff = func(c context.Context, msgs []kawa.Message[string]) error {
 		return flushErr
 	}
-	bat := NewDestination[string](FlushFunc[string](ff), FlushLength(1))
-	errc := make(chan error)
 
 	t.Run("flush errors return from run", func(t *testing.T) {
+		bat := NewDestination[string](FlushFunc[string](ff), FlushLength(1))
+		errc := make(chan error)
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 
 		go func(c context.Context, ec chan error) {
@@ -151,6 +151,8 @@ func TestBatcherErrors(t *testing.T) {
 	})
 
 	t.Run("cancellation works", func(t *testing.T) {
+		bat := NewDestination[string](FlushFunc[string](ff), FlushLength(1))
+		errc := make(chan error)
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		go func(c context.Context, ec chan error) {
 			ec <- bat.Run(c)
