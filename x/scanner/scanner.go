@@ -59,6 +59,10 @@ func (s *Scanner) recvLoop(ctx context.Context) error {
 		}
 	}
 
+	if err := s.scanner.Err(); err != nil {
+		return fmt.Errorf("scanning: %+w", err)
+	}
+
 	c := make(chan struct{})
 	go func() {
 		wg.Wait()
@@ -69,10 +73,6 @@ func (s *Scanner) recvLoop(ctx context.Context) error {
 	case <-c:
 	case <-ctx.Done():
 		return ctx.Err()
-	}
-
-	if err := s.scanner.Err(); err != nil {
-		return fmt.Errorf("scanning: %+w", err)
 	}
 
 	return nil

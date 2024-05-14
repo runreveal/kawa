@@ -2,6 +2,7 @@ package batch
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -30,6 +31,10 @@ type Destination[T any] struct {
 
 	messages chan msgAck[T]
 	buf      []msgAck[T]
+
+	count   int
+	running bool
+	syncMu  sync.Mutex
 }
 
 type OptFunc func(*Opts)
@@ -123,12 +128,21 @@ func (d *Destination[T]) Run(ctx context.Context) error {
 	epochC := make(chan uint64)
 	setTimer := true
 
+	d.syncMu.Lock()
+	if d.running {
+		panic("already running")
+	} else {
+		d.running = true
+	}
+	d.syncMu.Unlock()
+
 	ctx, cancel := context.WithCancel(ctx)
 
 loop:
 	for {
 		select {
 		case msg := <-d.messages:
+			d.count++
 			if setTimer {
 				// copy the epoch to send on the chan after the timer fires
 				epc := epoch
@@ -139,27 +153,34 @@ loop:
 			}
 			d.buf = append(d.buf, msg)
 			if len(d.buf) >= d.flushlen {
+				slog.Info("flushing on size", "len", len(d.buf), "processed", d.count)
+				epoch++
 				err = d.flush(ctx)
 				if err != nil {
+					slog.Error("flush error", "error", err)
 					break loop
 				}
 				setTimer = true
-				epoch++
 			}
 		case tEpoch := <-epochC:
 			// if we haven't flushed yet this epoch, then flush, otherwise ignore
 			if tEpoch == epoch {
+				epoch++
+				slog.Info("flushing on epoch", "len", len(d.buf), "processed", d.count, "epoch", epoch)
 				err = d.flush(ctx)
 				if err != nil {
 					break loop
 				}
 				setTimer = true
-				epoch++
 			}
 		case err = <-d.flusherr:
+			slog.Info("flush error", "error", err)
 			break loop
 		case <-ctx.Done():
-			err = ctx.Err()
+			slog.Info("context done", "err", ctx.Err(), "len", len(d.buf), "processed", d.count)
+			if len(d.buf) > 0 {
+				err = d.flush(ctx)
+			}
 			break loop
 		}
 	}
@@ -180,6 +201,7 @@ func (d *Destination[T]) flush(ctx context.Context) error {
 		// Have to make a copy so these don't get overwritten
 		msgs := make([]msgAck[T], len(d.buf))
 		copy(msgs, d.buf)
+		slog.Info(fmt.Sprintf("copied %d messages for flush", len(msgs)))
 		// This must happen in the same goroutine as flushwg.Wait
 		// do not push down into doflush
 		d.flushwg.Add(1)
@@ -187,10 +209,11 @@ func (d *Destination[T]) flush(ctx context.Context) error {
 		// Clear the buffer for the next batch
 		d.buf = d.buf[:0]
 	case err := <-d.flusherr:
+		slog.Error("flush error", "error", err)
 		return err
-	case <-ctx.Done():
-		// TODO: one more flush?
-		return ctx.Err()
+		// case <-ctx.Done():
+		// 	// TODO: one more flush?
+		// 	return ctx.Err()
 	}
 	return nil
 }
