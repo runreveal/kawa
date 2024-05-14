@@ -86,7 +86,7 @@ func TestBatchFlushTimeout(t *testing.T) {
 		return nil
 	}
 
-	bat := NewDestination[string](FlushFunc[string](ff), FlushFrequency(1*time.Millisecond), FlushLength(2))
+	bat := NewDestination[string](FlushFunc[string](ff), FlushFrequency(1*time.Millisecond), FlushLength(2), StopTimeout(10*time.Millisecond))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 
@@ -96,15 +96,11 @@ func TestBatchFlushTimeout(t *testing.T) {
 		ec <- bat.Run(c)
 	}(ctx, errc)
 
-	writeMsgs := []kawa.Message[string]{
-		{Value: "hi"},
-		{Value: "hello"},
-	}
-
 	done := make(chan struct{})
-	err := bat.Send(ctx, func() { close(done) }, writeMsgs[0])
+	err := bat.Send(ctx, func() { close(done) }, kawa.Message[string]{Value: "hi"})
 	assert.NoError(t, err)
-	time.Sleep(3 * time.Millisecond)
+
+	time.Sleep(15 * time.Millisecond)
 
 	hMu.Lock()
 	assert.True(t, handled, "value should have been set!")
