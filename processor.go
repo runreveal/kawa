@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"go.opentelemetry.io/otel"
@@ -23,6 +24,7 @@ type Processor[T1, T2 any] struct {
 	parallelism int
 	tracing     bool
 	metrics     bool
+	count       int
 }
 
 type Config[T1, T2 any] struct {
@@ -102,6 +104,7 @@ func (p *Processor[T1, T2]) handle(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("handler: %w", err)
 		}
+		p.count++
 		hdlSpan.End()
 
 		sctx, sendSpan := tracer.Start(ctx, "kawa.processor.dst.send")
@@ -152,6 +155,7 @@ func (p *Processor[T1, T2]) Run(ctx context.Context) error {
 	}
 	// Stop all the workers on shutdown.
 	cancel()
+	slog.Info("shutting down processor", "count", p.count)
 	// TODO: capture errors thrown during shutdown?  if we do this, write local
 	// err first. it represents first seen
 	wg.Wait()
