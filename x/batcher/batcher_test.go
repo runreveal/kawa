@@ -86,7 +86,12 @@ func TestBatchFlushTimeout(t *testing.T) {
 		return nil
 	}
 
-	bat := NewDestination[string](FlushFunc[string](ff), FlushFrequency(1*time.Millisecond), FlushLength(2), StopTimeout(10*time.Millisecond))
+	bat := NewDestination[string](
+		FlushFunc[string](ff),
+		FlushFrequency(1*time.Millisecond),
+		FlushLength(2),
+		StopTimeout(10*time.Millisecond),
+	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 
