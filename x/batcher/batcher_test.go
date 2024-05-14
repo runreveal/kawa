@@ -151,6 +151,9 @@ func TestBatcherErrors(t *testing.T) {
 	})
 
 	t.Run("cancellation works", func(t *testing.T) {
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			return nil
+		}
 		bat := NewDestination[string](FlushFunc[string](ff), FlushLength(1))
 		errc := make(chan error)
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -160,16 +163,16 @@ func TestBatcherErrors(t *testing.T) {
 
 		cancel()
 		err := <-errc
-		assert.ErrorIs(t, err, context.Canceled, "should return context canceled")
+		assert.ErrorIs(t, err, nil, "should return nil since no errors in flush")
 	})
 
-	t.Run("cancellation works in deadlock", func(t *testing.T) {
+	t.Run("deadlock cancellation", func(t *testing.T) {
 
 		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
 			<-c.Done()
 			return nil
 		}
-		bat := NewDestination[string](FlushFunc[string](ff), FlushLength(1))
+		bat := NewDestination[string](FlushFunc[string](ff), FlushLength(1), StopTimeout(10*time.Millisecond))
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 
@@ -191,10 +194,10 @@ func TestBatcherErrors(t *testing.T) {
 		done := make(chan struct{})
 		err := bat.Send(ctx, func() { close(done) }, writeMsgs...)
 		assert.NoError(t, err)
-
 		cancel()
+
 		err = <-errc
-		assert.ErrorIs(t, err, context.Canceled, "should return context canceled")
+		assert.ErrorIs(t, err, errDeadlock, "should return deadlock error")
 	})
 
 	t.Run("dont deadlock on errors returned from flush", func(t *testing.T) {

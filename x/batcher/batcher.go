@@ -2,6 +2,7 @@ package batch
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -29,11 +30,12 @@ func (ff FlushFunc[T]) Flush(c context.Context, msgs []kawa.Message[T]) error {
 // deadlock as the internal channel being written to by `Send` will not be
 // getting read.
 type Destination[T any] struct {
-	flusher   Flusher[T]
-	flushq    chan func()
-	flushlen  int
-	flushfreq time.Duration
-	flusherr  chan error
+	flusher     Flusher[T]
+	flushq      chan func()
+	flushlen    int
+	flushfreq   time.Duration
+	flusherr    chan error
+	stopTimeout time.Duration
 
 	messages chan msgAck[T]
 	buf      []msgAck[T]
@@ -49,6 +51,7 @@ type Opts struct {
 	FlushLength      int
 	FlushFrequency   time.Duration
 	FlushParallelism int
+	StopTimeout      time.Duration
 }
 
 func FlushFrequency(d time.Duration) func(*Opts) {
@@ -69,12 +72,19 @@ func FlushParallelism(n int) func(*Opts) {
 	}
 }
 
+func StopTimeout(d time.Duration) func(*Opts) {
+	return func(opts *Opts) {
+		opts.StopTimeout = d
+	}
+}
+
 // NewDestination instantiates a new batcher.
 func NewDestination[T any](f Flusher[T], opts ...OptFunc) *Destination[T] {
 	cfg := Opts{
 		FlushLength:      100,
 		FlushFrequency:   1 * time.Second,
 		FlushParallelism: 2,
+		StopTimeout:      5 * time.Second,
 	}
 
 	for _, o := range opts {
@@ -82,13 +92,20 @@ func NewDestination[T any](f Flusher[T], opts ...OptFunc) *Destination[T] {
 	}
 
 	// TODO: validate here
+	if cfg.FlushParallelism < 1 {
+		panic("FlushParallelism must be greater than or equal to 1")
+	}
+	if cfg.StopTimeout < 0 {
+		cfg.StopTimeout = 0
+	}
 
 	return &Destination[T]{
-		flushlen:  cfg.FlushLength,
-		flushq:    make(chan func(), cfg.FlushParallelism),
-		flusherr:  make(chan error, cfg.FlushParallelism),
-		flusher:   f,
-		flushfreq: cfg.FlushFrequency,
+		flushlen:    cfg.FlushLength,
+		flushq:      make(chan func(), cfg.FlushParallelism),
+		flusherr:    make(chan error, cfg.FlushParallelism),
+		flusher:     f,
+		flushfreq:   cfg.FlushFrequency,
+		stopTimeout: cfg.StopTimeout,
 
 		messages: make(chan msgAck[T]),
 	}
@@ -143,8 +160,6 @@ func (d *Destination[T]) Run(ctx context.Context) error {
 	}
 	d.syncMu.Unlock()
 
-	ctx, cancel := context.WithCancel(ctx)
-
 loop:
 	for {
 		select {
@@ -161,75 +176,95 @@ loop:
 			d.buf = append(d.buf, msg)
 			if len(d.buf) >= d.flushlen {
 				epoch++
-				err = d.flush(ctx)
-				if err != nil {
-					slog.Error("flush error", "error", err)
-					break loop
-				}
+				d.flush(ctx)
 				setTimer = true
 			}
 		case tEpoch := <-epochC:
 			// if we haven't flushed yet this epoch, then flush, otherwise ignore
 			if tEpoch == epoch {
 				epoch++
-				err = d.flush(ctx)
-				if err != nil {
-					break loop
-				}
+				d.flush(ctx)
 				setTimer = true
 			}
 		case err = <-d.flusherr:
 			slog.Info("flush error", "error", err)
 			break loop
+
 		case <-ctx.Done():
-			// TODO: how do we handle the final flush if
-			// d.buf is not empty?
-			err = ctx.Err()
+			slog.Info("batcher: context canceled. waiting for flushes to finish.", "len", len(d.flushq))
+			if len(d.buf) > 0 {
+				// optimistic final flush
+				go d.flush(context.Background())
+			}
 			break loop
 		}
 	}
 
-	cancel()
+	if len(d.flushq) == 0 {
+		return err
+	}
 
+timeout:
+	for {
+		// Wait for flushes to finish
+		select {
+		case <-time.After(d.stopTimeout):
+			slog.Error("batcher: timed out waiting for flushes. cancelling them.")
+			break timeout
+		case err = <-d.flusherr:
+			if err != nil {
+				slog.Info("flush error", "error", err)
+				return err
+			}
+		}
+	}
+	if len(d.flushq) == 0 {
+		return err
+	}
+
+drain:
+	// Stop active flushes
+	for {
+		select {
+		case cncl := <-d.flushq:
+			cncl()
+		default:
+			break drain
+		}
+	}
+	err = errDeadlock
 	return err
 }
 
-func (d *Destination[T]) flush(ctx context.Context) error {
+var errDeadlock = errors.New("batcher: flushes timed out waiting for completion after context stopped.")
+
+func (d *Destination[T]) flush(ctx context.Context) {
 	// We make a new context here so that we can cancel the flush if the parent
 	// context is canceled. It's important to use context.Background() here because
 	// we don't want to propagate the parent context's cancelation to the flusher.
 	// If we did, then the flusher would likely be canceled before it could
 	// finish flushing.
-	subctx, cancel := context.WithCancel(context.Background())
+	flctx, cancel := context.WithCancel(context.Background())
+	// block until a slot is available, or until a timeout is reached in the
+	// parent context
 	select {
-	// Acquire flush slot
 	case d.flushq <- cancel:
-		// Have to make a copy so these don't get overwritten
-		msgs := make([]msgAck[T], len(d.buf))
-		copy(msgs, d.buf)
-		go func() {
-			d.doflush(subctx, msgs)
-			// clear flush slot
-			// this will block forever if we're shutting down
-			cncl := <-d.flushq
-			cncl()
-		}()
-		// Clear the buffer for the next batch
-		d.buf = d.buf[:0]
 	case <-ctx.Done():
-	outer:
-		// Stop active flushes
-		for {
-			select {
-			case cncl := <-d.flushq:
-				cncl()
-			default:
-				break outer
-			}
-		}
-		return ctx.Err()
+		cancel()
+		return
 	}
-	return nil
+	// Have to make a copy so these don't get overwritten
+	msgs := make([]msgAck[T], len(d.buf))
+	copy(msgs, d.buf)
+	go func() {
+		d.doflush(flctx, msgs)
+		// clear flush slot
+		// this will block forever if we're shutting down
+		cncl := <-d.flushq
+		cncl()
+	}()
+	// Clear the buffer for the next batch
+	d.buf = d.buf[:0]
 }
 
 func (d *Destination[T]) doflush(ctx context.Context, msgs []msgAck[T]) {
