@@ -84,6 +84,7 @@ func New(opts ...Option) *S3 {
 		ret.batchSize = 100
 	}
 	ret.batcher = batch.NewDestination[[]byte](ret,
+		batch.Raise[[]byte](),
 		batch.FlushLength(ret.batchSize),
 		batch.FlushFrequency(5*time.Second),
 	)
