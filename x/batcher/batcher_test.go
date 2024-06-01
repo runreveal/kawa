@@ -216,7 +216,13 @@ func TestBatcherErrors(t *testing.T) {
 			assert.ErrorIs(t, err, flushErr)
 			return err
 		})
-		bat := NewDestination[string](FlushFunc[string](ff), errHandler, FlushLength(2), FlushParallelism(2), StopTimeout(90*time.Millisecond))
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			errHandler,
+			FlushLength(2),
+			FlushParallelism(2),
+			StopTimeout(90*time.Millisecond),
+		)
 		errc := make(chan error)
 
 		ctx, cncl := context.WithCancel(context.Background())
@@ -261,7 +267,13 @@ func TestBatcherErrors(t *testing.T) {
 			assert.ErrorIs(t, err, flushErr)
 			return err
 		})
-		bat := NewDestination[string](FlushFunc[string](ff), errHandler, FlushLength(2), FlushParallelism(2), StopTimeout(90*time.Millisecond))
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			errHandler,
+			FlushLength(2),
+			FlushParallelism(2),
+			StopTimeout(90*time.Millisecond),
+		)
 		errc := make(chan error)
 
 		ctx, cncl := context.WithCancel(context.Background())
