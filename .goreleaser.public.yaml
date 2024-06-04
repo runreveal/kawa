@@ -7,6 +7,10 @@ before:
     # you may remove this if you don't need go generate
     # - go generate ./...
 
+builds:
+  - skip: true
+
+
 changelog:
   use: github-native
 
