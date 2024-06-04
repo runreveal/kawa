@@ -6,34 +6,6 @@ before:
     - go mod tidy
     # you may remove this if you don't need go generate
     # - go generate ./...
-builds:
-  - main: ./cmd/kawad
-    id: kawad
-    binary: kawad
-    goos:
-      - linux
-      - darwin
-      - windows
-
-archives:
-  - format: tar.gz
-    id: kawad
-    # this name template makes the OS and Arch compatible with the results of uname.
-    name_template: >-
-      kawad-
-      {{- .Os }}-
-      {{- if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
-    builds: [kawad]
-    format_overrides:
-    - goos: windows
-      format: zip
-    # only embed binaries for now
-    # https://goreleaser.com/customization/archive/?h=archives#packaging-only-the-binaries
-    files:
-    - none*
 
 changelog:
   use: github-native
@@ -45,9 +17,6 @@ release:
   github:
     owner: runreveal
     name: kawa
-
-checksum:
-  name_template: 'checksums.txt'
 
 snapshot:
   name_template: "{{ incpatch .Version }}-{{ .ShortCommit }}-{{ .Branch }}"
