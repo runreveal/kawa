@@ -49,9 +49,9 @@ func WithAccessKeyID(accessKeyID string) Option {
 	}
 }
 
-func WithAccessSecretKey(accessSecretKey string) Option {
+func WithSecretAccessKey(secretAccessKey string) Option {
 	return func(s *S3) {
-		s.accessSecretKey = accessSecretKey
+		s.secretAccessKey = secretAccessKey
 	}
 }
 
@@ -70,7 +70,7 @@ type S3 struct {
 
 	customEndpoint  string
 	accessKeyID     string
-	accessSecretKey string
+	secretAccessKey string
 
 	batchSize int
 }
