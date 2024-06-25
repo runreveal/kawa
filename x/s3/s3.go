@@ -113,8 +113,8 @@ func (s *S3) Flush(ctx context.Context, msgs []kawa.Message[[]byte]) error {
 	if s.customEndpoint != "" {
 		config.Endpoint = aws.String(s.customEndpoint)
 	}
-	if s.accessKeyID != "" && s.accessSecretKey != "" {
-		config.Credentials = credentials.NewStaticCredentials(s.accessKeyID, s.accessSecretKey, "")
+	if s.accessKeyID != "" && s.secretAccessKey != "" {
+		config.Credentials = credentials.NewStaticCredentials(s.accessKeyID, s.secretAccessKey, "")
 	}
 	if s.bucketRegion != "" {
 		config.Region = aws.String(s.bucketRegion)
