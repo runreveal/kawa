@@ -27,9 +27,9 @@ type ErrorHandler[T any] interface {
 	HandleError(context.Context, error, []kawa.Message[T]) error
 }
 
-type ErrorHandle[T any] func(context.Context, error, []kawa.Message[T]) error
+type ErrorFunc[T any] func(context.Context, error, []kawa.Message[T]) error
 
-func (ef ErrorHandle[T]) HandleError(c context.Context, err error, msgs []kawa.Message[T]) error {
+func (ef ErrorFunc[T]) HandleError(c context.Context, err error, msgs []kawa.Message[T]) error {
 	return ef(c, err, msgs)
 }
 
@@ -94,11 +94,11 @@ func StopTimeout(d time.Duration) func(*Opts) {
 }
 
 func DiscardHandler[T any]() ErrorHandler[T] {
-	return ErrorHandle[T](func(context.Context, error, []kawa.Message[T]) error { return nil })
+	return ErrorFunc[T](func(context.Context, error, []kawa.Message[T]) error { return nil })
 }
 
 func Raise[T any]() ErrorHandler[T] {
-	return ErrorHandle[T](func(_ context.Context, err error, _ []kawa.Message[T]) error { return err })
+	return ErrorFunc[T](func(_ context.Context, err error, _ []kawa.Message[T]) error { return err })
 }
 
 // NewDestination instantiates a new batcher.
