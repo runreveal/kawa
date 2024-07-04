@@ -212,7 +212,7 @@ func TestBatcherErrors(t *testing.T) {
 			time.Sleep(110 * time.Millisecond)
 			return flushErr
 		}
-		var errHandler = ErrorHandle[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
+		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
 			assert.ErrorIs(t, err, flushErr)
 			return err
 		})
@@ -263,7 +263,7 @@ func TestBatcherErrors(t *testing.T) {
 			time.Sleep(110 * time.Millisecond)
 			return flushErr
 		}
-		var errHandler = ErrorHandle[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
+		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
 			assert.ErrorIs(t, err, flushErr)
 			return err
 		})
