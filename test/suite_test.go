@@ -87,7 +87,12 @@ func SuiteTest(t *testing.T, src kawa.Source[[]byte], dst kawa.Destination[[]byt
 	}
 }
 
-func mark(t *testing.T, actual []byte, sent [][]byte, seen []bool) {
+type aide interface {
+	assert.TestingT
+	Helper()
+}
+
+func mark(t aide, actual []byte, sent [][]byte, seen []bool) {
 	t.Helper()
 	for i, want := range sent {
 		if bytes.Equal(actual, want) {
@@ -96,4 +101,55 @@ func mark(t *testing.T, actual []byte, sent [][]byte, seen []bool) {
 			return
 		}
 	}
+}
+
+func BuildBench(b *testing.B, count int, src kawa.Source[[]byte], dst kawa.Destination[[]byte]) await.Runner {
+	wait := await.New()
+	want := make([][]byte, 25)
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := range want {
+		want[i] = make([]byte, 20)
+		_, err := rng.Read(want[i])
+		assert.NoError(b, err)
+	}
+
+	if runnner, ok := src.(await.Runner); ok {
+		wait.Add(runnner)
+	}
+	if runnner, ok := dst.(await.Runner); ok {
+		wait.Add(runnner)
+	}
+
+	wait.Add(await.RunFunc(func(ctx context.Context) error {
+		seen := 0
+		for {
+			_, ack, err := src.Recv(ctx)
+			if !errors.Is(err, context.Canceled) {
+				assert.NoError(b, err)
+			}
+			if ack != nil {
+				ack()
+			}
+			seen++
+			if seen == count {
+				break
+			}
+		}
+		return nil
+	}))
+
+	wait.Add(await.RunFunc(func(ctx context.Context) error {
+		for i := 0; i < count; i++ {
+			toSend := want[i%len(want)]
+			err := dst.Send(ctx, nil, kawa.Message[[]byte]{Value: toSend})
+			if !errors.Is(err, context.Canceled) {
+				assert.NoError(b, err)
+			}
+		}
+		// Wait until the source exits.
+		<-ctx.Done()
+		return nil
+	}))
+
+	return wait
 }

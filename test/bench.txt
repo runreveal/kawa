@@ -1,0 +1,15 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/runreveal/kawa/test
+BenchmarkMem-10    	3	 479789639 ns/op
+BenchmarkMem-10    	3	 470265097 ns/op
+BenchmarkMem-10    	3	 468312402 ns/op
+BenchmarkMem-10    	3	 441723403 ns/op
+BenchmarkMem-10    	3	 478304306 ns/op
+BenchmarkMem-10    	3	 481978250 ns/op
+BenchmarkMem-10    	3	 464515333 ns/op
+BenchmarkMem-10    	3	 478364931 ns/op
+BenchmarkMem-10    	3	 478826166 ns/op
+BenchmarkMem-10    	3	 483086972 ns/op
+PASS
+ok  	github.com/runreveal/kawa/test	28.571s
