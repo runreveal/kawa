@@ -15,6 +15,7 @@ import (
 	"github.com/runreveal/kawa/x/printer"
 	"github.com/runreveal/kawa/x/scanner"
 	"github.com/segmentio/ksuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,6 +24,20 @@ func TestMem(t *testing.T) {
 	src := memory.NewMemSource((<-chan []byte)(schan))
 	dst := memory.NewMemDestination[[]byte]((chan<- []byte)(schan))
 	SuiteTest(t, src, dst)
+}
+
+func BenchmarkMem(b *testing.B) {
+	schan := make(chan []byte)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		src := memory.NewMemSource((<-chan []byte)(schan))
+		dst := memory.NewMemDestination[[]byte]((chan<- []byte)(schan))
+		runner := BuildBench(b, 1000000, src, dst)
+		b.StartTimer()
+		err := runner.Run(context.Background())
+		assert.NoError(b, err)
+	}
 }
 
 func TestIO(t *testing.T) {
