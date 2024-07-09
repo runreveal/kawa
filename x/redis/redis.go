@@ -6,6 +6,7 @@ import (
 
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/runreveal/kawa"
+	"github.com/segmentio/ksuid"
 )
 
 type Options struct {
@@ -98,11 +99,13 @@ func (s *Source) Run(ctx context.Context) error {
 func (s *Source) recvLoop(ctx context.Context) error {
 	var err error
 
+	gid := ksuid.New().String()
+
 outer:
 	for {
 		msgs, err := s.client.XReadGroup(ctx, &goredis.XReadGroupArgs{
 			Group:    "kawa",
-			Consumer: "1",
+			Consumer: gid,
 			Streams:  []string{s.opts.topic, ">"},
 			Count:    100,
 			Block:    0,

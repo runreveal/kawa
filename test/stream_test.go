@@ -47,8 +47,7 @@ func TestRedis(t *testing.T) {
 		Password: "",               // No password set
 		DB:       0,                // Use default DB
 	})
-	gid := ksuid.New().String()
-	_, err := rc.XGroupCreateMkStream(context.Background(), "kawa/topic", gid, "$").Result()
+	_, err := rc.XGroupCreateMkStream(context.Background(), "kawa/topic", "kawa", "$").Result()
 	if err != nil {
 		fmt.Println("err initing", err)
 	}
