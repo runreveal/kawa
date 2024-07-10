@@ -123,6 +123,7 @@ outer:
 					bts = []byte(v)
 				}
 
+				mid := m.ID
 				msgAck := kawa.MsgAck[[]byte]{
 					Msg: kawa.Message[[]byte]{
 						Key:   m.ID,
@@ -130,7 +131,7 @@ outer:
 						Value: bts,
 					},
 					Ack: func() {
-						_, err := s.client.XAck(ctx, topic, "kawa", m.ID).Result()
+						_, err := s.client.XAck(ctx, topic, "kawa", mid).Result()
 						if err != nil {
 							slog.Warn("failed to ack redis message", "err", err)
 						}
