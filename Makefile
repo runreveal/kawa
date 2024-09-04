@@ -28,7 +28,7 @@ dist:
 
 .PHONY: compose
 compose:
-	docker-compose up -d
+	docker compose up -d
 
 .PHONY: lint
 lint: $(GOPATH)/bin/golangci-lint

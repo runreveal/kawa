@@ -26,7 +26,7 @@ jobs:
         cache: true
 
     - name: Start containers
-      run: docker-compose -f "docker-compose.yml" up -d
+      run: docker compose -f "docker-compose.yml" up -d
 
     - name: Test
       run: make test
@@ -38,5 +38,5 @@ jobs:
       run: make lint
 
     - name: Stop containers
-      run: docker-compose -f "docker-compose.yml" down -v
+      run: docker compose -f "docker-compose.yml" down -v
       if: always()
