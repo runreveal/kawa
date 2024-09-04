@@ -13,6 +13,13 @@ import (
 	"github.com/segmentio/ksuid"
 )
 
+// Flusher is the core interface that the user of this package must implement
+// to get the batching functionality.
+// It takes a slice of messages and returns an error if the flush fails. It's
+// expected to be run synchronously and only return once the flush is complete.
+// The flusher MUST respond to the context being canceled and return an error
+// if the context is canceled.  If no other error occured, then return the
+// context error.
 type Flusher[T any] interface {
 	Flush(context.Context, []kawa.Message[T]) error
 }
