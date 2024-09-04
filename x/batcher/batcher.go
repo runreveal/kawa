@@ -43,12 +43,14 @@ func (ef ErrorFunc[T]) HandleError(c context.Context, err error, msgs []kawa.Mes
 // deadlock as the internal channel being written to by `Send` will not be
 // getting read.
 type Destination[T any] struct {
-	flusher     Flusher[T]
-	flushq      chan struct{}
-	flushlen    int
-	flushfreq   time.Duration
-	flushcan    map[string]context.CancelFunc
-	stopTimeout time.Duration
+	flusher         Flusher[T]
+	flushq          chan struct{}
+	flushlen        int
+	flushfreq       time.Duration
+	flushcan        map[string]context.CancelFunc
+	flushTimeout    time.Duration
+	stopTimeout     time.Duration
+	watchdogTimeout time.Duration
 
 	errorHandler ErrorHandler[T]
 	flusherr     chan error
@@ -66,8 +68,10 @@ type OptFunc func(*Opts)
 type Opts struct {
 	FlushLength      int
 	FlushFrequency   time.Duration
+	FlushTimeout     time.Duration
 	FlushParallelism int
 	StopTimeout      time.Duration
+	WatchdogTimeout  time.Duration
 }
 
 func FlushFrequency(d time.Duration) func(*Opts) {
@@ -85,6 +89,18 @@ func FlushLength(size int) func(*Opts) {
 func FlushParallelism(n int) func(*Opts) {
 	return func(opts *Opts) {
 		opts.FlushParallelism = n
+	}
+}
+
+func FlushTimeout(d time.Duration) func(*Opts) {
+	return func(opts *Opts) {
+		opts.FlushTimeout = d
+	}
+}
+
+func WatchdogTimeout(d time.Duration) func(*Opts) {
+	return func(opts *Opts) {
+		opts.WatchdogTimeout = d
 	}
 }
 
@@ -125,14 +141,22 @@ func NewDestination[T any](f Flusher[T], e ErrorHandler[T], opts ...OptFunc) *De
 	if cfg.StopTimeout < 0 {
 		cfg.StopTimeout = 0
 	}
+	if cfg.WatchdogTimeout < 0 {
+		cfg.WatchdogTimeout = 0
+	}
+	if cfg.FlushTimeout < 0 {
+		cfg.FlushTimeout = 0
+	}
 
 	d := &Destination[T]{
-		flushlen:    cfg.FlushLength,
-		flushq:      make(chan struct{}, cfg.FlushParallelism),
-		flusher:     f,
-		flushcan:    make(map[string]context.CancelFunc),
-		flushfreq:   cfg.FlushFrequency,
-		stopTimeout: cfg.StopTimeout,
+		flushlen:        cfg.FlushLength,
+		flushq:          make(chan struct{}, cfg.FlushParallelism),
+		flusher:         f,
+		flushcan:        make(map[string]context.CancelFunc),
+		flushfreq:       cfg.FlushFrequency,
+		flushTimeout:    cfg.FlushTimeout,
+		stopTimeout:     cfg.StopTimeout,
+		watchdogTimeout: cfg.WatchdogTimeout,
 
 		errorHandler: e,
 		flusherr:     make(chan error, cfg.FlushParallelism),
@@ -192,14 +216,19 @@ func (d *Destination[T]) Run(ctx context.Context) error {
 	}
 	d.syncMu.Unlock()
 
-	deadlockTimer := time.NewTimer(5 * time.Minute)
+	var wdChan <-chan time.Time
+	var wdTimer *time.Timer
+	if d.watchdogTimeout > 0 {
+		wdTimer = time.NewTimer(d.watchdogTimeout)
+		wdChan = wdTimer.C
+	}
 
 	var err error
 loop:
 	for {
 		select {
-		case <-deadlockTimer.C:
-			slog.Info(fmt.Sprintf("batcher deadlock, dest: %p, msgs: %p", d, d.messages))
+		case <-wdChan:
+			slog.Info(fmt.Sprintf("batcher wd, dest: %p, msgs: %p", d, d.messages))
 			return errDeadlock
 
 		case msg := <-d.messages: // Here
@@ -211,10 +240,12 @@ loop:
 					epochC <- epc // Here
 				})
 
-				if !deadlockTimer.Stop() {
-					<-deadlockTimer.C
+				if wdTimer != nil {
+					if !wdTimer.Stop() {
+						<-wdTimer.C
+					}
+					wdTimer.Reset(d.watchdogTimeout)
 				}
-				deadlockTimer.Reset(5 * time.Minute)
 
 				setTimer = false
 			}
@@ -308,11 +339,11 @@ func (d *Destination[T]) flush(ctx context.Context) {
 }
 
 func (d *Destination[T]) doflush(ctx context.Context, msgs []kawa.Message[T], acks []func()) {
-	// This not ideal.
-	// kawaMsgs := make([]kawa.Message[T], 0, len(msgs))
-	// for _, m := range msgs {
-	// 	kawaMsgs = append(kawaMsgs, m.msg)
-	// }
+	if d.flushTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.flushTimeout)
+		defer cancel()
+	}
 
 	err := d.flusher.Flush(ctx, msgs)
 	if err != nil {
