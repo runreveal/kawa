@@ -125,7 +125,7 @@ func NewDestination[T any](f Flusher[T], e ErrorHandler[T], opts ...OptFunc) *De
 		cfg.StopTimeout = 0
 	}
 
-	return &Destination[T]{
+	d := &Destination[T]{
 		flushlen:    cfg.FlushLength,
 		flushq:      make(chan struct{}, cfg.FlushParallelism),
 		flusher:     f,
@@ -139,6 +139,9 @@ func NewDestination[T any](f Flusher[T], e ErrorHandler[T], opts ...OptFunc) *De
 		messages: make(chan msgAck[T]),
 	}
 
+	slog.Info(fmt.Sprintf("batcher init, dest: %p, msgs: %p", d, d.messages))
+
+	return d
 }
 
 type msgAck[T any] struct {
@@ -188,10 +191,16 @@ func (d *Destination[T]) Run(ctx context.Context) error {
 	}
 	d.syncMu.Unlock()
 
+	deadlockTimer := time.NewTimer(5 * time.Minute)
+
 	var err error
 loop:
 	for {
 		select {
+		case <-deadlockTimer.C:
+			slog.Info(fmt.Sprintf("batcher deadlock, dest: %p, msgs: %p", d, d.messages))
+			return errDeadlock
+
 		case msg := <-d.messages: // Here
 			d.count++
 			if setTimer {
@@ -200,6 +209,12 @@ loop:
 				time.AfterFunc(d.flushfreq, func() {
 					epochC <- epc // Here
 				})
+
+				if !deadlockTimer.Stop() {
+					<-deadlockTimer.C
+				}
+				deadlockTimer.Reset(5 * time.Minute)
+
 				setTimer = false
 			}
 			d.buf = append(d.buf, msg)
