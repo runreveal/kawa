@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -164,8 +163,6 @@ func NewDestination[T any](f Flusher[T], e ErrorHandler[T], opts ...OptFunc) *De
 		messages: make(chan msgAck[T]),
 	}
 
-	slog.Info(fmt.Sprintf("batcher init, dest: %p, msgs: %p", d, d.messages), "stack", string(debug.Stack()))
-
 	return d
 }
 
@@ -228,7 +225,6 @@ loop:
 	for {
 		select {
 		case <-wdChan:
-			slog.Info(fmt.Sprintf("batcher wd, dest: %p, msgs: %p", d, d.messages))
 			return errDeadlock
 
 		case msg := <-d.messages: // Here
@@ -293,7 +289,7 @@ loop:
 	return errDeadlock
 }
 
-var errDeadlock = errors.New("batcher: flushes timed out waiting for completion after context stopped.")
+var errDeadlock = errors.New("batcher: flushes timed out")
 
 func (d *Destination[T]) flush(ctx context.Context) {
 	// We make a new context here so that we can cancel the flush if the parent
