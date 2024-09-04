@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -139,7 +140,7 @@ func NewDestination[T any](f Flusher[T], e ErrorHandler[T], opts ...OptFunc) *De
 		messages: make(chan msgAck[T]),
 	}
 
-	slog.Info(fmt.Sprintf("batcher init, dest: %p, msgs: %p", d, d.messages))
+	slog.Info(fmt.Sprintf("batcher init, dest: %p, msgs: %p", d, d.messages), "stack", string(debug.Stack()))
 
 	return d
 }
