@@ -3,7 +3,6 @@ package batch
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -288,9 +287,8 @@ loop:
 	// flushes still active after timeout
 	// cancel them.
 	d.syncMu.Lock()
-	for k, v := range d.flushcan {
+	for _, v := range d.flushcan {
 		v()
-		fmt.Println("timeout cancel for id", k)
 	}
 	d.syncMu.Unlock()
 	return errDeadlock
