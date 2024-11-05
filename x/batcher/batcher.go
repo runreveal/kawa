@@ -13,6 +13,13 @@ import (
 	"github.com/segmentio/ksuid"
 )
 
+// ErrDontAck should be returned by ErrorHandlers when they wish to
+// signal to the batcher to skip acking a message as delivered, but
+// continue to process.  For example, if an error is retryable and
+// will be retried upstream at the source if an ack is not received
+// before some timeout.
+var ErrDontAck = errors.New("Destination encountered a retryable error")
+
 // Flusher is the core interface that the user of this package must implement
 // to get the batching functionality.
 // It takes a slice of messages and returns an error if the flush fails. It's
@@ -353,8 +360,16 @@ func (d *Destination[T]) doflush(ctx context.Context, msgs []kawa.Message[T], ac
 		slog.Debug("flush err", "error", err)
 		err := d.errorHandler.HandleError(ctx, err, msgs)
 		if err != nil {
+			// If error handler returns ErrDontAck, this means we want the
+			// batcher to continue running, but to skip acknowledging the delivery
+			// of the affected messages
+			if errors.Is(err, ErrDontAck) {
+				return
+			}
+
+			// Otherwise, if error handler returns an error, then we exit by exposing
+			// the error upstream
 			d.flusherr <- err
-			// if error handler returns an error, then we exit
 			return
 		}
 	}

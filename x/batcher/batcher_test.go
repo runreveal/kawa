@@ -340,4 +340,41 @@ func TestBatcherErrors(t *testing.T) {
 		err = <-errc
 		assert.ErrorIs(t, err, flushErr)
 	})
+
+	t.Run("Don't ack messages if flush handler returns ErrRetryable", func(t *testing.T) {
+		var retryHandler = func(ctx context.Context, err error, msgs []kawa.Message[string]) error {
+			return ErrDontAck
+		}
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			ErrorFunc[string](retryHandler),
+			FlushLength(1),
+			FlushParallelism(1),
+		)
+		errc := make(chan error)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
+
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		messages := []kawa.Message[string]{
+			{Value: "one"},
+			{Value: "two"},
+			{Value: "three"},
+			{Value: "ten"},
+		}
+
+		ackCount := 0
+		err := bat.Send(ctx, func() { ackCount += 1 }, messages...)
+		assert.NoError(t, err)
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+
+		err = <-errc
+		assert.ErrorIs(t, err, nil)
+
+		assert.Equal(t, 0, ackCount)
+	})
 }
