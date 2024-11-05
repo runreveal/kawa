@@ -341,7 +341,7 @@ func TestBatcherErrors(t *testing.T) {
 		assert.ErrorIs(t, err, flushErr)
 	})
 
-	t.Run("Don't ack messages if flush handler returns ErrRetryable", func(t *testing.T) {
+	t.Run("Don't ack messages if flush handler returns ErrDontAck", func(t *testing.T) {
 		var retryHandler = func(ctx context.Context, err error, msgs []kawa.Message[string]) error {
 			return ErrDontAck
 		}
