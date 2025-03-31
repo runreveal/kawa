@@ -1,3 +1,6 @@
+// Package mqtt provides [MQTT] integrations for kawa.
+//
+// [MQTT]: https://mqtt.org/
 package mqtt
 
 import (
@@ -11,9 +14,10 @@ import (
 	"github.com/runreveal/kawa"
 )
 
-type OptFunc func(*Opts)
+// Option is an argument to [NewSource] or [NewDestination].
+type Option func(*options)
 
-type Opts struct {
+type options struct {
 	broker   string
 	clientID string
 	topic    string
@@ -26,20 +30,25 @@ type Opts struct {
 	keepAlive time.Duration
 }
 
-func WithBroker(broker string) func(*Opts) {
-	return func(opts *Opts) {
+// WithBroker specifies the broker URI to connect to.
+func WithBroker(broker string) Option {
+	return func(opts *options) {
 		opts.broker = broker
 	}
 }
 
-func WithClientID(clientID string) func(*Opts) {
-	return func(opts *Opts) {
+// WithClientID specifies client ID to advertise when connecting to the MQTT broker.
+// This string must be no more than 23 bytes in length.
+func WithClientID(clientID string) Option {
+	return func(opts *options) {
 		opts.clientID = clientID
 	}
 }
 
-func WithTopic(topic string) func(*Opts) {
-	return func(opts *Opts) {
+// WithTopic specifies the topic to publish or subscribe to.
+// By default, this is "#".
+func WithTopic(topic string) Option {
+	return func(opts *options) {
 		if topic == "" {
 			opts.topic = "#"
 		} else {
@@ -48,39 +57,46 @@ func WithTopic(topic string) func(*Opts) {
 	}
 }
 
-func WithKeepAlive(keepAlive time.Duration) func(*Opts) {
-	return func(opts *Opts) {
+// WithKeepAlive sets the amount of time before sending a PING message to the broker.
+func WithKeepAlive(keepAlive time.Duration) Option {
+	return func(opts *options) {
 		opts.keepAlive = keepAlive
 	}
 }
 
-func WithQOS(qos byte) func(*Opts) {
-	return func(opts *Opts) {
+// WithQOS sets the quality-of-service (QoS) option for publishing or subscribing.
+func WithQOS(qos byte) Option {
+	return func(opts *options) {
 		opts.qos = qos
 	}
 }
 
-func WithRetained(retained bool) func(*Opts) {
-	return func(opts *Opts) {
+// WithRetained sets whether messages sent to the topic will have the retained bit set.
+// WithRetained is only applicable for [NewDestination].
+func WithRetained(retained bool) Option {
+	return func(opts *options) {
 		opts.retained = retained
 	}
 }
 
-func WithUserName(userName string) func(*Opts) {
-	return func(opts *Opts) {
+// WithUserName sets the username to authenticate to the broker with.
+func WithUserName(userName string) Option {
+	return func(opts *options) {
 		opts.userName = userName
 	}
 }
 
-func WithPassword(password string) func(*Opts) {
-	return func(opts *Opts) {
+// WithPassword sets the password to authenticate to the broker with.
+func WithPassword(password string) Option {
+	return func(opts *options) {
 		opts.password = password
 	}
 }
 
+// Destination is a [kawa.Destination] that publishes to an MQTT topic.
 type Destination struct {
 	client MQTT.Client
-	cfg    Opts
+	cfg    options
 	errc   chan error
 }
 
@@ -89,8 +105,8 @@ type msgAck struct {
 	ack func()
 }
 
-func loadOpts(opts []OptFunc) Opts {
-	cfg := Opts{
+func loadOpts(opts []Option) options {
+	cfg := options{
 		topic:    "#",
 		retained: false,
 		qos:      1,
@@ -102,7 +118,9 @@ func loadOpts(opts []OptFunc) Opts {
 	return cfg
 }
 
-func NewDestination(opts ...OptFunc) (*Destination, error) {
+// NewDestination returns a new [Destination] with the given options.
+// NewDestination returns an error if the caller does not provide [WithBroker] or [WithClientID].
+func NewDestination(opts ...Option) (*Destination, error) {
 	cfg := loadOpts(opts)
 	ret := &Destination{
 		cfg:  cfg,
@@ -122,7 +140,7 @@ func NewDestination(opts ...OptFunc) (*Destination, error) {
 	return ret, nil
 }
 
-func clientConnect(opts Opts, onLost MQTT.ConnectionLostHandler) (MQTT.Client, error) {
+func clientConnect(opts options, onLost MQTT.ConnectionLostHandler) (MQTT.Client, error) {
 	if opts.broker == "" {
 		return nil, errors.New("mqtt: missing broker")
 	}
@@ -153,6 +171,8 @@ func clientConnect(opts Opts, onLost MQTT.ConnectionLostHandler) (MQTT.Client, e
 	return client, nil
 }
 
+// Run waits until ctx.Done() is closed or the MQTT connection is lost,
+// then disconnects after a grace period.
 func (dest *Destination) Run(ctx context.Context) error {
 	var err error
 	select {
@@ -164,6 +184,7 @@ func (dest *Destination) Run(ctx context.Context) error {
 	return err
 }
 
+// Send publishes each message in the batch to the configured topic.
 func (dest *Destination) Send(ctx context.Context, ack func(), msgs ...kawa.Message[[]byte]) error {
 	for _, msg := range msgs {
 		token := dest.client.Publish(dest.cfg.topic, dest.cfg.qos, dest.cfg.retained, string(msg.Value))
@@ -172,17 +193,24 @@ func (dest *Destination) Send(ctx context.Context, ack func(), msgs ...kawa.Mess
 			return token.Error()
 		}
 	}
+	kawa.Ack(ack)
 	return nil
 }
 
+// Source is a [kawa.Source] that subscribes to an MQTT topic.
 type Source struct {
 	msgC   chan msgAck
-	cfg    Opts
+	cfg    options
 	errc   chan error
 	client MQTT.Client
 }
 
-func NewSource(opts ...OptFunc) (*Source, error) {
+// NewSource returns a new [Source] with the given options.
+// NewSource returns an error if the caller does not provide [WithBroker] or [WithClientID].
+//
+// The caller is responsible for calling [*Source.Run]
+// or else [*Source.Recv] will block indefinitely.
+func NewSource(opts ...Option) (*Source, error) {
 	cfg := loadOpts(opts)
 
 	ret := &Source{
@@ -204,6 +232,7 @@ func NewSource(opts ...OptFunc) (*Source, error) {
 	return ret, nil
 }
 
+// Run receives messages until ctx.Done() is closed.
 func (src *Source) Run(ctx context.Context) error {
 	return src.recvLoop(ctx)
 }
@@ -230,8 +259,10 @@ func (src *Source) recvLoop(ctx context.Context) error {
 		return fmt.Errorf("mqtt subscribe error: %s", token.Error())
 	}
 
-	defer src.client.Unsubscribe(src.cfg.topic)
-	defer src.client.Disconnect(250)
+	defer func() {
+		src.client.Unsubscribe(src.cfg.topic)
+		src.client.Disconnect(250)
+	}()
 
 	select {
 	case err := <-src.errc:
@@ -241,6 +272,9 @@ func (src *Source) recvLoop(ctx context.Context) error {
 	}
 }
 
+// Recv waits for the next message from the topic.
+//
+// Note that Recv will block indefinitely unless [*Source.Run] is active.
 func (src *Source) Recv(ctx context.Context) (kawa.Message[[]byte], func(), error) {
 	select {
 	case <-ctx.Done():
