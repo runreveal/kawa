@@ -55,7 +55,7 @@ func TestIO(t *testing.T) {
 }
 
 func TestMQTT(t *testing.T) {
-	mqttOpts := []mqtt.OptFunc{
+	mqttOpts := []mqtt.Option{
 		mqtt.WithBroker("mqtt://localhost:1883"),
 		mqtt.WithTopic("kawa/topic"),
 		mqtt.WithKeepAlive(5 * time.Second),
