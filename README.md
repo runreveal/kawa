@@ -152,7 +152,6 @@ more important than message volume.
  - scanner
  - journald
  - mqtt
- - windows event logs
 
 # Supported destinations
 
