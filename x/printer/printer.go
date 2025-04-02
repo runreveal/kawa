@@ -52,7 +52,7 @@ func (p *Printer) Send(ctx context.Context, ack func(), msg ...kawa.Message[[]by
 	}
 
 	select {
-	case <-p.mu:
+	case p.mu <- struct{}{}:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -62,7 +62,7 @@ func (p *Printer) Send(ctx context.Context, ack func(), msg ...kawa.Message[[]by
 		p.buf = append(p.buf, p.delim...)
 	}
 	_, err := p.writer.Write(p.buf)
-	p.mu <- struct{}{} // Release mutex as soon as possible after Write.
+	<-p.mu // Release mutex as soon as possible after Write.
 
 	if err == nil {
 		kawa.Ack(ack)
