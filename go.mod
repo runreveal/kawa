@@ -1,6 +1,7 @@
 module github.com/runreveal/kawa
 
 go 1.21
+toolchain go1.23.7
 
 require (
 	github.com/aws/aws-sdk-go v1.44.313
@@ -11,7 +12,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	go.opentelemetry.io/otel v1.19.0
 	go.opentelemetry.io/otel/trace v1.19.0
-	golang.org/x/sys v0.21.0
+	golang.org/x/sys v0.30.0
 )
 
 require (
@@ -23,7 +24,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.opentelemetry.io/otel/metric v1.19.0 // indirect
 	golang.org/x/exp v0.0.0-20230728194245-b0cb94b80691 // indirect
-	golang.org/x/net v0.26.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
