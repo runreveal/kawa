@@ -64,6 +64,7 @@ type Destination[T any] struct {
 	flushTimeout    time.Duration
 	stopTimeout     time.Duration
 	watchdogTimeout time.Duration
+	nonblocking     bool
 
 	errorHandler ErrorHandler[T]
 	flusherr     chan error
@@ -85,6 +86,7 @@ type Opts struct {
 	FlushParallelism int
 	StopTimeout      time.Duration
 	WatchdogTimeout  time.Duration
+	NonBlocking      bool
 }
 
 func FlushFrequency(d time.Duration) func(*Opts) {
@@ -120,6 +122,16 @@ func WatchdogTimeout(d time.Duration) func(*Opts) {
 func StopTimeout(d time.Duration) func(*Opts) {
 	return func(opts *Opts) {
 		opts.StopTimeout = d
+	}
+}
+
+// NonBlocking drops messages if there's no more room in the buffer.
+// it's intent is for use in situations where it's appropriate to drop
+// data if it would apply backpressure, like in the case of observability
+// metrics.
+func NonBlocking(b bool) func(*Opts) {
+	return func(opts *Opts) {
+		opts.NonBlocking = b
 	}
 }
 
@@ -170,6 +182,7 @@ func NewDestination[T any](f Flusher[T], e ErrorHandler[T], opts ...OptFunc) *De
 		flushTimeout:    cfg.FlushTimeout,
 		stopTimeout:     cfg.StopTimeout,
 		watchdogTimeout: cfg.WatchdogTimeout,
+		nonblocking:     cfg.NonBlocking,
 
 		errorHandler: e,
 		flusherr:     make(chan error, cfg.FlushParallelism),
@@ -198,14 +211,24 @@ func (d *Destination[T]) Send(ctx context.Context, ack func(), msgs ...kawa.Mess
 	callMe := ackFn(ack, len(msgs))
 
 	for _, m := range msgs {
-		select {
-		case d.messages <- msgAck[T]{msg: m, ack: callMe}: // Here
-		case <-ctx.Done():
-			// TODO: one more flush?
-			return ctx.Err()
+
+		if d.nonblocking {
+			select {
+			case d.messages <- msgAck[T]{msg: m, ack: callMe}: // Here
+			default:
+				// if writing a message would block, it means the buffers
+				// are full so we should passthrough.
+				// warn here?  pass a different error back?
+			}
+		} else {
+			select {
+			case d.messages <- msgAck[T]{msg: m, ack: callMe}: // Here
+			case <-ctx.Done():
+				// TODO: one more flush?
+				return ctx.Err()
+			}
 		}
 	}
-
 	return nil
 }
 
