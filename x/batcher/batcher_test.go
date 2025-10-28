@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -376,5 +377,305 @@ func TestBatcherErrors(t *testing.T) {
 		assert.ErrorIs(t, err, nil)
 
 		assert.Equal(t, 0, ackCount)
+	})
+}
+
+func TestBatcherRetry(t *testing.T) {
+	t.Run("retry on retriable error and succeed", func(t *testing.T) {
+		var attemptCount atomic.Int32
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			count := attemptCount.Add(1)
+			if count < 3 {
+				return errors.New("temporary error")
+			}
+			return nil
+		}
+
+		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
+			// Just pass through the error
+			return err
+		})
+
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			errHandler,
+			FlushLength(1),
+			MaxRetries(3),
+			InitialBackoff(10*time.Millisecond),
+			IsRetryable(func(err error) bool {
+				return err != nil && err.Error() == "temporary error"
+			}),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		errc := make(chan error)
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		ackChan := make(chan struct{})
+		err := bat.Send(ctx, func() { close(ackChan) }, kawa.Message[string]{Value: "hi"})
+		assert.NoError(t, err)
+
+		// Wait for ack to happen
+		select {
+		case <-ackChan:
+			// Success - message was acked
+		case <-time.After(200 * time.Millisecond):
+			t.Fatal("timeout waiting for ack")
+		}
+
+		cancel()
+		err = <-errc
+		assert.NoError(t, err)
+		assert.Equal(t, int32(3), attemptCount.Load(), "should have made 3 attempts")
+	})
+
+	t.Run("retry exhausts max attempts", func(t *testing.T) {
+		var attemptCount atomic.Int32
+		flushErr := errors.New("persistent error")
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			attemptCount.Add(1)
+			return flushErr
+		}
+
+		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
+			return err
+		})
+
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			errHandler,
+			FlushLength(1),
+			MaxRetries(2),
+			InitialBackoff(5*time.Millisecond),
+			IsRetryable(func(err error) bool {
+				return err != nil && err.Error() == "persistent error"
+			}),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		errc := make(chan error)
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		ackCount := 0
+		err := bat.Send(ctx, func() { ackCount++ }, kawa.Message[string]{Value: "hi"})
+		assert.NoError(t, err)
+
+		err = <-errc
+		assert.ErrorIs(t, err, flushErr)
+		assert.Equal(t, int32(3), attemptCount.Load(), "should have made 3 attempts (initial + 2 retries)")
+		assert.Equal(t, 0, ackCount, "should not have acked")
+	})
+
+	t.Run("no retry on non-retriable error", func(t *testing.T) {
+		var attemptCount atomic.Int32
+		flushErr := errors.New("non-retriable error")
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			attemptCount.Add(1)
+			return flushErr
+		}
+
+		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
+			// Just pass through the error
+			return err
+		})
+
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			errHandler,
+			FlushLength(1),
+			MaxRetries(3),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		errc := make(chan error)
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		err := bat.Send(ctx, nil, kawa.Message[string]{Value: "hi"})
+		assert.NoError(t, err)
+
+		err = <-errc
+		assert.ErrorIs(t, err, flushErr)
+		assert.Equal(t, int32(1), attemptCount.Load(), "should have made only 1 attempt")
+	})
+
+	t.Run("retry with exponential backoff", func(t *testing.T) {
+		attemptTimes := []time.Time{}
+		flushErr := errors.New("error")
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			attemptTimes = append(attemptTimes, time.Now())
+			return flushErr
+		}
+
+		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
+			return err
+		})
+
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			errHandler,
+			FlushLength(1),
+			MaxRetries(2),
+			InitialBackoff(50*time.Millisecond),
+			BackoffMultiplier(2.0),
+			IsRetryable(func(err error) bool {
+				return err != nil
+			}),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		errc := make(chan error)
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		err := bat.Send(ctx, nil, kawa.Message[string]{Value: "hi"})
+		assert.NoError(t, err)
+
+		err = <-errc
+		assert.ErrorIs(t, err, flushErr)
+		assert.Equal(t, 3, len(attemptTimes), "should have 3 attempts")
+
+		// Check backoff timing (with some tolerance)
+		timeBetween1and2 := attemptTimes[1].Sub(attemptTimes[0])
+		assert.GreaterOrEqual(t, timeBetween1and2, 50*time.Millisecond)
+		assert.Less(t, timeBetween1and2, 70*time.Millisecond)
+
+		timeBetween2and3 := attemptTimes[2].Sub(attemptTimes[1])
+		assert.GreaterOrEqual(t, timeBetween2and3, 100*time.Millisecond)
+		assert.Less(t, timeBetween2and3, 120*time.Millisecond)
+	})
+
+	t.Run("ErrDontAck takes precedence over retry", func(t *testing.T) {
+		var attemptCount atomic.Int32
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			attemptCount.Add(1)
+			return errors.New("error")
+		}
+
+		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
+			// Return ErrDontAck, should not retry
+			return ErrDontAck
+		})
+
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			errHandler,
+			FlushLength(1),
+			MaxRetries(3),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		errc := make(chan error)
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		ackCount := 0
+		err := bat.Send(ctx, func() { ackCount++ }, kawa.Message[string]{Value: "hi"})
+		assert.NoError(t, err)
+
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+
+		err = <-errc
+		assert.NoError(t, err)
+		assert.Equal(t, int32(1), attemptCount.Load(), "should have made only 1 attempt")
+		assert.Equal(t, 0, ackCount, "should not have acked")
+	})
+
+	t.Run("retry respects FlushTimeout per attempt", func(t *testing.T) {
+		var attemptCount atomic.Int32
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			attemptCount.Add(1)
+			// Sleep longer than timeout to trigger deadline exceeded
+			time.Sleep(100 * time.Millisecond)
+			return c.Err()
+		}
+
+		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
+			return err
+		})
+
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			errHandler,
+			FlushLength(1),
+			FlushTimeout(50*time.Millisecond), // Timeout shorter than flush operation
+			MaxRetries(2),
+			InitialBackoff(10*time.Millisecond),
+			IsRetryable(func(err error) bool {
+				return errors.Is(err, context.DeadlineExceeded)
+			}),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		errc := make(chan error)
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		err := bat.Send(ctx, nil, kawa.Message[string]{Value: "hi"})
+		assert.NoError(t, err)
+
+		err = <-errc
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		// Should have tried 3 times, each time getting timeout
+		assert.Equal(t, int32(3), attemptCount.Load(), "should have made 3 attempts")
+	})
+
+	t.Run("zero retries means no retry", func(t *testing.T) {
+		var attemptCount atomic.Int32
+		flushErr := errors.New("error")
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			attemptCount.Add(1)
+			return flushErr
+		}
+
+		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
+			return err
+		})
+
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			errHandler,
+			FlushLength(1),
+			MaxRetries(0), // No retries
+			IsRetryable(func(err error) bool {
+				return err != nil
+			}),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		errc := make(chan error)
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		err := bat.Send(ctx, nil, kawa.Message[string]{Value: "hi"})
+		assert.NoError(t, err)
+
+		err = <-errc
+		assert.ErrorIs(t, err, flushErr)
+		assert.Equal(t, int32(1), attemptCount.Load(), "should have made only initial attempt")
 	})
 }

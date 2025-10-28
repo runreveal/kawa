@@ -68,6 +68,12 @@ type Destination[T any] struct {
 	errorHandler ErrorHandler[T]
 	flusherr     chan error
 
+	maxRetries        int
+	initialBackoff    time.Duration
+	maxBackoff        time.Duration
+	backoffMultiplier float64
+	isRetryable       func(error) bool
+
 	messages chan msgAck[T]
 	buf      []msgAck[T]
 
@@ -79,12 +85,17 @@ type Destination[T any] struct {
 type OptFunc func(*Opts)
 
 type Opts struct {
-	FlushLength      int
-	FlushFrequency   time.Duration
-	FlushTimeout     time.Duration
-	FlushParallelism int
-	StopTimeout      time.Duration
-	WatchdogTimeout  time.Duration
+	FlushLength       int
+	FlushFrequency    time.Duration
+	FlushTimeout      time.Duration
+	FlushParallelism  int
+	StopTimeout       time.Duration
+	WatchdogTimeout   time.Duration
+	MaxRetries        int
+	InitialBackoff    time.Duration
+	MaxBackoff        time.Duration
+	BackoffMultiplier float64
+	IsRetryable       func(error) bool
 }
 
 func FlushFrequency(d time.Duration) func(*Opts) {
@@ -123,6 +134,39 @@ func StopTimeout(d time.Duration) func(*Opts) {
 	}
 }
 
+func MaxRetries(n int) func(*Opts) {
+	return func(opts *Opts) {
+		opts.MaxRetries = n
+	}
+}
+
+func InitialBackoff(d time.Duration) func(*Opts) {
+	return func(opts *Opts) {
+		opts.InitialBackoff = d
+	}
+}
+
+func MaxBackoff(d time.Duration) func(*Opts) {
+	return func(opts *Opts) {
+		opts.MaxBackoff = d
+	}
+}
+
+func BackoffMultiplier(m float64) func(*Opts) {
+	return func(opts *Opts) {
+		opts.BackoffMultiplier = m
+	}
+}
+
+// IsRetryable takes a callback which will be called on the return value from
+// your flush function. If it returns true, the flush will be retried,
+// otherwise the error will be passed to your defined error handler.
+func IsRetryable(fn func(error) bool) func(*Opts) {
+	return func(opts *Opts) {
+		opts.IsRetryable = fn
+	}
+}
+
 func DiscardHandler[T any]() ErrorHandler[T] {
 	return ErrorFunc[T](func(context.Context, error, []kawa.Message[T]) error { return nil })
 }
@@ -134,10 +178,14 @@ func Raise[T any]() ErrorHandler[T] {
 // NewDestination instantiates a new batcher.
 func NewDestination[T any](f Flusher[T], e ErrorHandler[T], opts ...OptFunc) *Destination[T] {
 	cfg := Opts{
-		FlushLength:      100,
-		FlushFrequency:   1 * time.Second,
-		FlushParallelism: 2,
-		StopTimeout:      5 * time.Second,
+		FlushLength:       100,
+		FlushFrequency:    1 * time.Second,
+		FlushParallelism:  2,
+		StopTimeout:       5 * time.Second,
+		MaxRetries:        3,
+		InitialBackoff:    500 * time.Millisecond,
+		MaxBackoff:        5 * time.Second,
+		BackoffMultiplier: 2.0,
 	}
 
 	for _, o := range opts {
@@ -160,6 +208,18 @@ func NewDestination[T any](f Flusher[T], e ErrorHandler[T], opts ...OptFunc) *De
 	if cfg.FlushTimeout < 0 {
 		cfg.FlushTimeout = 0
 	}
+	if cfg.MaxRetries < 0 {
+		cfg.MaxRetries = 0
+	}
+	if cfg.InitialBackoff < 0 {
+		cfg.InitialBackoff = 0
+	}
+	if cfg.MaxBackoff < 0 {
+		cfg.MaxBackoff = 0
+	}
+	if cfg.BackoffMultiplier <= 0 {
+		cfg.BackoffMultiplier = 1.0
+	}
 
 	d := &Destination[T]{
 		flushlen:        cfg.FlushLength,
@@ -173,6 +233,12 @@ func NewDestination[T any](f Flusher[T], e ErrorHandler[T], opts ...OptFunc) *De
 
 		errorHandler: e,
 		flusherr:     make(chan error, cfg.FlushParallelism),
+
+		maxRetries:        cfg.MaxRetries,
+		initialBackoff:    cfg.InitialBackoff,
+		maxBackoff:        cfg.MaxBackoff,
+		backoffMultiplier: cfg.BackoffMultiplier,
+		isRetryable:       cfg.IsRetryable,
 
 		messages: make(chan msgAck[T]),
 	}
@@ -349,36 +415,85 @@ func (d *Destination[T]) flush(ctx context.Context) {
 }
 
 func (d *Destination[T]) doflush(ctx context.Context, msgs []kawa.Message[T], acks []func()) {
-	if d.flushTimeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, d.flushTimeout)
-		defer cancel()
-	}
+	backoff := d.initialBackoff
+	var flushErr error
 
-	err := d.flusher.Flush(ctx, msgs)
-	if err != nil {
-		slog.Debug("flush err", "error", err)
-		err := d.errorHandler.HandleError(ctx, err, msgs)
-		if err != nil {
-			// If error handler returns ErrDontAck, this means we want the
-			// batcher to continue running, but to skip acknowledging the delivery
-			// of the affected messages
-			if errors.Is(err, ErrDontAck) {
-				return
+	// Retry loop
+	for attempt := 0; attempt <= d.maxRetries; attempt++ {
+		// Create a fresh context with timeout for this attempt
+		attemptCtx := ctx
+		if d.flushTimeout > 0 {
+			var cancel context.CancelFunc
+			attemptCtx, cancel = context.WithTimeout(ctx, d.flushTimeout)
+			defer cancel()
+		}
+
+		flushErr = d.flusher.Flush(attemptCtx, msgs)
+
+		// Success case
+		if flushErr == nil {
+			if attempt > 0 {
+				slog.Info("flush succeeded after retry", "attempt", attempt+1, "count", len(msgs))
 			}
-
-			// Otherwise, if error handler returns an error, then we exit by exposing
-			// the error upstream
-			d.flusherr <- err
-			return
+			break
 		}
+
+		// Failure case - check if we should retry
+		slog.Debug("flush err", "error", flushErr, "attempt", attempt+1)
+
+		// Check if error is retriable using the callback (if provided) - retry if we have attempts left
+		if d.isRetryable != nil && d.isRetryable(flushErr) && attempt < d.maxRetries {
+			slog.Warn(
+				"flush failed, will retry",
+				"error", flushErr,
+				"attempt", attempt+1,
+				"maxRetries", d.maxRetries+1,
+				"backoff", backoff,
+			)
+
+			// Sleep with backoff before retrying
+			select {
+			case <-time.After(backoff):
+				backoff = time.Duration(float64(backoff) * d.backoffMultiplier)
+				if backoff > d.maxBackoff {
+					backoff = d.maxBackoff
+				}
+				continue
+			case <-ctx.Done():
+				flushErr = ctx.Err()
+				break
+			}
+		}
+
+		// Non-retriable error or exhausted retries - exit retry loop
+		slog.Error("flush failed after all retries", "error", flushErr, "attempts", attempt+1)
+		break
 	}
 
-	for _, ack := range acks {
-		if ack != nil {
-			ack()
-		}
+	var handlerErr error
+	if flushErr != nil {
+		handlerErr = d.errorHandler.HandleError(ctx, flushErr, msgs)
+	} else {
+		handlerErr = nil
 	}
+
+	// If error handler returns ErrDontAck, skip acking but continue running
+	if errors.Is(handlerErr, ErrDontAck) {
+		return
+	}
+
+	// Error handler resolved the error - ack the messages
+	if handlerErr == nil {
+		for _, ack := range acks {
+			if ack != nil {
+				ack()
+			}
+		}
+		return
+	}
+
+	// Error handler returned an error - propagate it to stop the batcher
+	d.flusherr <- handlerErr
 }
 
 // only call ack on last message acknowledgement
