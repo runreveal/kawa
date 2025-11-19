@@ -316,6 +316,12 @@ loop:
 			if len(d.flushq) == 0 {
 				// Reset the watchdog and continue
 				if wdTimer != nil {
+					if !wdTimer.Stop() {
+						select {
+						case <-wdTimer.C:
+						default:
+						}
+					}
 					wdTimer.Reset(d.watchdogTimeout)
 				}
 				continue
