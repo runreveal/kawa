@@ -295,7 +295,13 @@ func (d *Destination[T]) Run(ctx context.Context) error {
 
 	var wdChan <-chan time.Time
 	var wdTimer *time.Timer
-	wdResetC := make(chan struct{}, 10) // buffered to avoid blocking flush goroutines
+
+	// We are using 3*parallelism for the buffer lenght
+	// This is the theoretical maximum signals we would get if
+	// #parallelism number of flushes started/completed/started again
+	// before the channel would drain.  Memory cost is miniscule for
+	// this buffer because it just holds struct{}
+	wdResetC := make(chan struct{}, 3*len(d.flushq))
 	if d.watchdogTimeout > 0 {
 		wdTimer = time.NewTimer(d.watchdogTimeout)
 		wdChan = wdTimer.C
