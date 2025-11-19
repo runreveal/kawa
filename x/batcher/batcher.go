@@ -321,10 +321,7 @@ loop:
 			// A flush has started or completed, reset the watchdog
 			if wdTimer != nil {
 				if !wdTimer.Stop() {
-					select {
-					case <-wdTimer.C:
-					default:
-					}
+					<-wdTimer.C
 				}
 				wdTimer.Reset(d.watchdogTimeout)
 			}
