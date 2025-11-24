@@ -679,3 +679,166 @@ func TestBatcherRetry(t *testing.T) {
 		assert.Equal(t, int32(1), attemptCount.Load(), "should have made only initial attempt")
 	})
 }
+
+func TestWatchdog(t *testing.T) {
+	t.Run("idle system does not trigger watchdog", func(t *testing.T) {
+		var flushCount atomic.Int32
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			flushCount.Add(1)
+			return nil
+		}
+
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			Raise[string](),
+			FlushLength(10),
+			FlushFrequency(50*time.Millisecond),
+			WatchdogTimeout(100*time.Millisecond),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+		defer cancel()
+
+		errc := make(chan error)
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		// Send one message, which will flush after 50ms
+		err := bat.Send(ctx, nil, kawa.Message[string]{Value: "message1"})
+		assert.NoError(t, err)
+
+		// Wait for flush to happen
+		time.Sleep(70 * time.Millisecond)
+
+		// Now system is idle. Watchdog is 100ms, but no flushes are in-flight
+		// so it should reset and not error
+		time.Sleep(150 * time.Millisecond)
+
+		cancel()
+		err = <-errc
+		assert.NoError(t, err, "idle system should not trigger watchdog")
+		assert.Equal(t, int32(1), flushCount.Load(), "should have flushed once")
+	})
+
+	t.Run("stuck flush with no new messages triggers watchdog", func(t *testing.T) {
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			// Simulate a flush that ignores context cancellation
+			time.Sleep(1 * time.Second)
+			return nil
+		}
+
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			Raise[string](),
+			FlushLength(1),
+			FlushTimeout(50*time.Millisecond), // Context will be cancelled, but flush ignores it
+			WatchdogTimeout(150*time.Millisecond),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		errc := make(chan error)
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		// Send one message which will trigger a flush
+		err := bat.Send(ctx, nil, kawa.Message[string]{Value: "message1"})
+		assert.NoError(t, err)
+
+		// Watchdog should fire after 150ms because flush is stuck
+		err = <-errc
+		assert.ErrorIs(t, err, errDeadlock, "stuck flush should trigger watchdog")
+	})
+
+	t.Run("stuck flush with continuing message arrival triggers watchdog", func(t *testing.T) {
+		var flushCount atomic.Int32
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			count := flushCount.Add(1)
+			if count == 1 {
+				// First flush gets stuck and ignores context
+				time.Sleep(1 * time.Second)
+				return nil
+			}
+			// Subsequent flushes complete quickly
+			return nil
+		}
+
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			Raise[string](),
+			FlushLength(1),
+			FlushParallelism(2), // Allow parallel flushes
+			FlushTimeout(50*time.Millisecond),
+			WatchdogTimeout(200*time.Millisecond),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		errc := make(chan error)
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		// Send first message - this will get stuck
+		err := bat.Send(ctx, nil, kawa.Message[string]{Value: "message1"})
+		assert.NoError(t, err)
+
+		// Wait a bit for first flush to start
+		time.Sleep(30 * time.Millisecond)
+
+		// Send more messages periodically to keep resetting the old watchdog
+		// With our new implementation, this should still detect the stuck flush
+		for i := 0; i < 3; i++ {
+			time.Sleep(80 * time.Millisecond)
+			err := bat.Send(ctx, nil, kawa.Message[string]{Value: fmt.Sprintf("message%d", i+2)})
+			assert.NoError(t, err)
+		}
+
+		// Watchdog should eventually fire because first flush is stuck
+		err = <-errc
+		assert.ErrorIs(t, err, errDeadlock, "stuck flush should trigger watchdog even with new messages")
+	})
+
+	t.Run("watchdog resets on flush completion", func(t *testing.T) {
+		var flushCount atomic.Int32
+		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
+			flushCount.Add(1)
+			// Each flush takes 80ms, but completes successfully
+			time.Sleep(80 * time.Millisecond)
+			return nil
+		}
+
+		bat := NewDestination[string](
+			FlushFunc[string](ff),
+			Raise[string](),
+			FlushLength(1),
+			WatchdogTimeout(200*time.Millisecond),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel()
+
+		errc := make(chan error)
+		go func(c context.Context, ec chan error) {
+			ec <- bat.Run(c)
+		}(ctx, errc)
+
+		// Send 3 messages, each will flush independently
+		for i := 0; i < 3; i++ {
+			err := bat.Send(ctx, nil, kawa.Message[string]{Value: fmt.Sprintf("message%d", i+1)})
+			assert.NoError(t, err)
+		}
+
+		// Wait for all flushes to complete
+		time.Sleep(300 * time.Millisecond)
+
+		cancel()
+		err := <-errc
+		assert.NoError(t, err, "watchdog should not fire when flushes complete successfully")
+		assert.Equal(t, int32(3), flushCount.Load(), "should have completed 3 flushes")
+	})
+}

@@ -295,6 +295,13 @@ func (d *Destination[T]) Run(ctx context.Context) error {
 
 	var wdChan <-chan time.Time
 	var wdTimer *time.Timer
+
+	// We are using 3*parallelism for the buffer lenght
+	// This is the theoretical maximum signals we would get if
+	// #parallelism number of flushes started/completed/started again
+	// before the channel would drain.  Memory cost is miniscule for
+	// this buffer because it just holds struct{}
+	wdResetC := make(chan struct{}, 3*len(d.flushq))
 	if d.watchdogTimeout > 0 {
 		wdTimer = time.NewTimer(d.watchdogTimeout)
 		wdChan = wdTimer.C
@@ -305,7 +312,31 @@ loop:
 	for {
 		select {
 		case <-wdChan:
+			// If no flushes are in-flight, this is just an idle timeout, not a deadlock
+			if len(d.flushq) == 0 {
+				// Reset the watchdog and continue
+				if wdTimer != nil {
+					if !wdTimer.Stop() {
+						select {
+						case <-wdTimer.C:
+						default:
+						}
+					}
+					wdTimer.Reset(d.watchdogTimeout)
+				}
+				continue
+			}
+			// There are flushes in-flight that haven't completed - this is a real deadlock
 			return errDeadlock
+
+		case <-wdResetC:
+			// A flush has started or completed, reset the watchdog
+			if wdTimer != nil {
+				if !wdTimer.Stop() {
+					<-wdTimer.C
+				}
+				wdTimer.Reset(d.watchdogTimeout)
+			}
 
 		case msg := <-d.messages: // Here
 			d.count++
@@ -328,14 +359,14 @@ loop:
 			d.buf = append(d.buf, msg)
 			if len(d.buf) >= d.flushlen {
 				epoch++
-				d.flush(ctx)
+				d.flush(ctx, wdResetC)
 				setTimer = true
 			}
 		case tEpoch := <-epochC:
 			// if we haven't flushed yet this epoch, then flush, otherwise ignore
 			if tEpoch == epoch {
 				epoch++
-				d.flush(ctx)
+				d.flush(ctx, wdResetC)
 				setTimer = true
 			}
 		case <-ctx.Done():
@@ -371,7 +402,7 @@ loop:
 
 var errDeadlock = errors.New("batcher: flushes timed out")
 
-func (d *Destination[T]) flush(ctx context.Context) {
+func (d *Destination[T]) flush(ctx context.Context, wdResetC chan<- struct{}) {
 	// We make a new context here so that we can cancel the flush if the parent
 	// context is canceled. It's important to use context.Background() here because
 	// we don't want to propagate the parent context's cancelation to the flusher.
@@ -388,6 +419,12 @@ func (d *Destination[T]) flush(ctx context.Context) {
 	// parent context
 	select {
 	case d.flushq <- struct{}{}:
+		// Flush slot acquired - signal watchdog reset
+		select {
+		case wdResetC <- struct{}{}:
+		default:
+			// Channel full, skip this reset signal
+		}
 	case <-ctx.Done():
 		cancel()
 		return
@@ -403,6 +440,12 @@ func (d *Destination[T]) flush(ctx context.Context) {
 		d.doflush(flctx, msgs, acks)
 		// clear flush slot
 		<-d.flushq
+		// Flush completed - signal watchdog reset
+		select {
+		case wdResetC <- struct{}{}:
+		default:
+			// Channel full, skip this reset signal
+		}
 		// clear cancel
 		d.syncMu.Lock()
 		cncl := d.flushcan[id]
