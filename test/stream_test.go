@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -55,6 +56,10 @@ func TestIO(t *testing.T) {
 }
 
 func TestMQTT(t *testing.T) {
+	if os.Getenv("KAWA_RUN_MQTT_TESTS") != "1" {
+		t.Skip("set KAWA_RUN_MQTT_TESTS=1 to run MQTT integration tests")
+	}
+
 	mqttOpts := []mqtt.Option{
 		mqtt.WithBroker("mqtt://localhost:1883"),
 		mqtt.WithTopic("kawa/topic"),
