@@ -42,18 +42,16 @@ func NewMemDestination[T any](out chan<- T) MemoryDestination[T] {
 	}
 }
 
-// Send implements [kawa.Destination] by sending the messages sequentially on the channel.
-// If ctx.Done() is closed before all the messages are sent.
+// Send implements [kawa.Destination] by sending the message on the channel.
+// If ctx.Done() is closed before the message is sent,
 // then Send returns ctx.Err().
-// If ack is not nil, then it will be called after all the messages are sent
+// If ack is not nil, then it will be called after the message is sent
 // but before Send returns.
-func (ms MemoryDestination[T]) Send(ctx context.Context, ack func(), msgs ...kawa.Message[T]) error {
-	for _, msg := range msgs {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case ms.MsgC <- msg.Value:
-		}
+func (ms MemoryDestination[T]) Send(ctx context.Context, ack func(), msg kawa.Message[T]) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case ms.MsgC <- msg.Value:
 	}
 	kawa.Ack(ack)
 	return nil

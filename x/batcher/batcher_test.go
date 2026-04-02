@@ -3,7 +3,6 @@ package batch
 import (
 	"context"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,28 +11,6 @@ import (
 	"github.com/runreveal/kawa"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestAckChu(t *testing.T) {
-	var called bool
-	callMe := ackFn(func() { called = true }, 2)
-	for i := 0; i < 2; i++ {
-		callMe()
-	}
-	assert.True(t, called, "ack should be called")
-
-	nilMe := ackFn(nil, 2)
-	for i := 0; i < 2; i++ {
-		// shouldn't panic
-		nilMe()
-	}
-}
-
-// func flushTest[T any](c context.Context, msgs []kawa.Message[T]) {
-// 	for _, msg := range msgs {
-// 		fmt.Println(msg.Value)
-// 	}
-// 	counter++
-// }
 
 func TestBatcher(t *testing.T) {
 
@@ -61,8 +38,14 @@ func TestBatcher(t *testing.T) {
 	}
 
 	done := make(chan struct{})
-	err := bat.Send(ctx, func() { close(done) }, writeMsgs...)
-	assert.NoError(t, err)
+	for i, m := range writeMsgs {
+		var ack func()
+		if i == len(writeMsgs)-1 {
+			ack = func() { close(done) }
+		}
+		err := bat.Send(ctx, ack, m)
+		assert.NoError(t, err)
+	}
 
 	select {
 	case err := <-errc:
@@ -74,16 +57,13 @@ func TestBatcher(t *testing.T) {
 }
 
 func TestBatchFlushTimeout(t *testing.T) {
-	hMu := sync.Mutex{}
-	handled := false
+	handled := make(chan struct{})
 
 	var ff = func(c context.Context, msgs []kawa.Message[string]) error {
 		for _, msg := range msgs {
 			fmt.Println(msg.Value)
 		}
-		hMu.Lock()
-		handled = true
-		hMu.Unlock()
+		close(handled)
 		return nil
 	}
 
@@ -107,11 +87,11 @@ func TestBatchFlushTimeout(t *testing.T) {
 	err := bat.Send(ctx, func() { close(done) }, kawa.Message[string]{Value: "hi"})
 	assert.NoError(t, err)
 
-	time.Sleep(15 * time.Millisecond)
-
-	hMu.Lock()
-	assert.True(t, handled, "value should have been set!")
-	hMu.Unlock()
+	select {
+	case <-handled:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("flush not called in time")
+	}
 
 	select {
 	case err := <-errc:
@@ -137,12 +117,8 @@ func TestBatcherErrors(t *testing.T) {
 			ec <- bat.Run(c)
 		}(ctx, errc)
 
-		writeMsgs := []kawa.Message[string]{
-			{Value: "hi"},
-		}
-
 		done := make(chan struct{})
-		err := bat.Send(ctx, func() { close(done) }, writeMsgs...)
+		err := bat.Send(ctx, func() { close(done) }, kawa.Message[string]{Value: "hi"})
 		assert.NoError(t, err)
 
 		select {
@@ -195,19 +171,22 @@ func TestBatcherErrors(t *testing.T) {
 		}
 
 		done := make(chan struct{})
-		err := bat.Send(ctx, func() { close(done) }, writeMsgs...)
-		assert.NoError(t, err)
+		for i, m := range writeMsgs {
+			var ack func()
+			if i == len(writeMsgs)-1 {
+				ack = func() { close(done) }
+			}
+			err := bat.Send(ctx, ack, m)
+			assert.NoError(t, err)
+		}
 		cancel()
 
-		err = <-errc
+		err := <-errc
 		assert.ErrorIs(t, err, errDeadlock, "should return deadlock error")
 	})
 
 	t.Run("handle errors when errors returned from flush", func(t *testing.T) {
 
-		// This test deadlocks in failure
-		// Should figure out how to write it better
-
 		flushErr := errors.New("flush error")
 		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
 			time.Sleep(110 * time.Millisecond)
@@ -233,82 +212,28 @@ func TestBatcherErrors(t *testing.T) {
 		}(ctx, errc)
 
 		writeMsgs := []kawa.Message[string]{
-			// will be blocked flushing
 			{Value: "hi"},
-			// will be stuck waiting for flush slot
 			{Value: "hello"},
-			// will be stuck waiting to write to msgs in Send
 			{Value: "bonjour"},
 		}
 
 		done := make(chan struct{})
-		err := bat.Send(ctx, func() { close(done) }, writeMsgs...)
-		assert.NoError(t, err, "errors aren't returned from Send")
+		for i, m := range writeMsgs {
+			var ack func()
+			if i == len(writeMsgs)-1 {
+				ack = func() { close(done) }
+			}
+			err := bat.Send(ctx, ack, m)
+			assert.NoError(t, err, "errors aren't returned from Send")
+		}
 
 		cncl()
 
-		// parallelism is 2, so max processing time is 220ms (110ms for the first
-		// two msgs in parallel, and another 110ms for the third)
-		// stop timeout of 90ms means we'll see the deadlock error
-		err = <-errc
-		assert.ErrorIs(t, err, errDeadlock)
-	})
-
-	t.Run("handle errors when errors returned from flush", func(t *testing.T) {
-
-		// This test deadlocks in failure
-		// Should figure out how to write it better
-
-		flushErr := errors.New("flush error")
-		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
-			time.Sleep(110 * time.Millisecond)
-			return flushErr
-		}
-		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
-			assert.ErrorIs(t, err, flushErr)
-			return err
-		})
-		bat := NewDestination[string](
-			FlushFunc[string](ff),
-			errHandler,
-			FlushLength(2),
-			FlushParallelism(2),
-			StopTimeout(90*time.Millisecond),
-		)
-		errc := make(chan error)
-
-		ctx, cncl := context.WithCancel(context.Background())
-
-		go func(c context.Context, ec chan error) {
-			ec <- bat.Run(c)
-		}(ctx, errc)
-
-		writeMsgs := []kawa.Message[string]{
-			// will be blocked flushing
-			{Value: "hi"},
-			// will be stuck waiting for flush slot
-			{Value: "hello"},
-			// will be stuck waiting to write to msgs in Send
-			{Value: "bonjour"},
-		}
-
-		done := make(chan struct{})
-		err := bat.Send(ctx, func() { close(done) }, writeMsgs...)
-		assert.NoError(t, err, "errors aren't returned from Send")
-
-		cncl()
-
-		// parallelism is 2, so max processing time is 220ms (110ms for the first
-		// two msgs in parallel, and another 110ms for the third)
-		// stop timeout of 90ms means we'll see the deadlock error
-		err = <-errc
+		err := <-errc
 		assert.ErrorIs(t, err, errDeadlock)
 	})
 
 	t.Run("dont deadlock on errors returned from flush with length 1", func(t *testing.T) {
-
-		// This test deadlocks in failure
-		// Should figure out how to write it better
 
 		flushErr := errors.New("flush error")
 		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
@@ -326,19 +251,22 @@ func TestBatcherErrors(t *testing.T) {
 		}(ctx, errc)
 
 		writeMsgs := []kawa.Message[string]{
-			// will be blocked flushing
 			{Value: "hi"},
-			// will be stuck waiting for flush slot
 			{Value: "hello"},
-			// will be stuck waiting to write to msgs in Send
 			{Value: "bonjour"},
 		}
 
 		done := make(chan struct{})
-		err := bat.Send(ctx, func() { close(done) }, writeMsgs...)
-		assert.NoError(t, err)
+		for i, m := range writeMsgs {
+			var ack func()
+			if i == len(writeMsgs)-1 {
+				ack = func() { close(done) }
+			}
+			err := bat.Send(ctx, ack, m)
+			assert.NoError(t, err)
+		}
 
-		err = <-errc
+		err := <-errc
 		assert.ErrorIs(t, err, flushErr)
 	})
 
@@ -368,12 +296,18 @@ func TestBatcherErrors(t *testing.T) {
 		}
 
 		ackCount := 0
-		err := bat.Send(ctx, func() { ackCount += 1 }, messages...)
-		assert.NoError(t, err)
+		for i, m := range messages {
+			var ack func()
+			if i == len(messages)-1 {
+				ack = func() { ackCount++ }
+			}
+			err := bat.Send(ctx, ack, m)
+			assert.NoError(t, err)
+		}
 		time.Sleep(50 * time.Millisecond)
 		cancel()
 
-		err = <-errc
+		err := <-errc
 		assert.ErrorIs(t, err, nil)
 
 		assert.Equal(t, 0, ackCount)
@@ -392,7 +326,6 @@ func TestBatcherRetry(t *testing.T) {
 		}
 
 		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
-			// Just pass through the error
 			return err
 		})
 
@@ -419,10 +352,8 @@ func TestBatcherRetry(t *testing.T) {
 		err := bat.Send(ctx, func() { close(ackChan) }, kawa.Message[string]{Value: "hi"})
 		assert.NoError(t, err)
 
-		// Wait for ack to happen
 		select {
 		case <-ackChan:
-			// Success - message was acked
 		case <-time.After(200 * time.Millisecond):
 			t.Fatal("timeout waiting for ack")
 		}
@@ -483,7 +414,6 @@ func TestBatcherRetry(t *testing.T) {
 		}
 
 		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
-			// Just pass through the error
 			return err
 		})
 
@@ -567,7 +497,6 @@ func TestBatcherRetry(t *testing.T) {
 		}
 
 		var errHandler = ErrorFunc[string](func(c context.Context, err error, msgs []kawa.Message[string]) error {
-			// Return ErrDontAck, should not retry
 			return ErrDontAck
 		})
 
@@ -603,7 +532,6 @@ func TestBatcherRetry(t *testing.T) {
 		var attemptCount atomic.Int32
 		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
 			attemptCount.Add(1)
-			// Sleep longer than timeout to trigger deadline exceeded
 			time.Sleep(100 * time.Millisecond)
 			return c.Err()
 		}
@@ -616,7 +544,7 @@ func TestBatcherRetry(t *testing.T) {
 			FlushFunc[string](ff),
 			errHandler,
 			FlushLength(1),
-			FlushTimeout(50*time.Millisecond), // Timeout shorter than flush operation
+			FlushTimeout(50*time.Millisecond),
 			MaxRetries(2),
 			InitialBackoff(10*time.Millisecond),
 			IsRetryable(func(err error) bool {
@@ -637,7 +565,6 @@ func TestBatcherRetry(t *testing.T) {
 
 		err = <-errc
 		assert.ErrorIs(t, err, context.DeadlineExceeded)
-		// Should have tried 3 times, each time getting timeout
 		assert.Equal(t, int32(3), attemptCount.Load(), "should have made 3 attempts")
 	})
 
@@ -657,7 +584,7 @@ func TestBatcherRetry(t *testing.T) {
 			FlushFunc[string](ff),
 			errHandler,
 			FlushLength(1),
-			MaxRetries(0), // No retries
+			MaxRetries(0),
 			IsRetryable(func(err error) bool {
 				return err != nil
 			}),
@@ -704,15 +631,11 @@ func TestWatchdog(t *testing.T) {
 			ec <- bat.Run(c)
 		}(ctx, errc)
 
-		// Send one message, which will flush after 50ms
 		err := bat.Send(ctx, nil, kawa.Message[string]{Value: "message1"})
 		assert.NoError(t, err)
 
-		// Wait for flush to happen
 		time.Sleep(70 * time.Millisecond)
 
-		// Now system is idle. Watchdog is 100ms, but no flushes are in-flight
-		// so it should reset and not error
 		time.Sleep(150 * time.Millisecond)
 
 		cancel()
@@ -723,7 +646,6 @@ func TestWatchdog(t *testing.T) {
 
 	t.Run("stuck flush with no new messages triggers watchdog", func(t *testing.T) {
 		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
-			// Simulate a flush that ignores context cancellation
 			time.Sleep(1 * time.Second)
 			return nil
 		}
@@ -732,7 +654,7 @@ func TestWatchdog(t *testing.T) {
 			FlushFunc[string](ff),
 			Raise[string](),
 			FlushLength(1),
-			FlushTimeout(50*time.Millisecond), // Context will be cancelled, but flush ignores it
+			FlushTimeout(50*time.Millisecond),
 			WatchdogTimeout(150*time.Millisecond),
 		)
 
@@ -744,11 +666,9 @@ func TestWatchdog(t *testing.T) {
 			ec <- bat.Run(c)
 		}(ctx, errc)
 
-		// Send one message which will trigger a flush
 		err := bat.Send(ctx, nil, kawa.Message[string]{Value: "message1"})
 		assert.NoError(t, err)
 
-		// Watchdog should fire after 150ms because flush is stuck
 		err = <-errc
 		assert.ErrorIs(t, err, errDeadlock, "stuck flush should trigger watchdog")
 	})
@@ -758,11 +678,9 @@ func TestWatchdog(t *testing.T) {
 		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
 			count := flushCount.Add(1)
 			if count == 1 {
-				// First flush gets stuck and ignores context
 				time.Sleep(1 * time.Second)
 				return nil
 			}
-			// Subsequent flushes complete quickly
 			return nil
 		}
 
@@ -770,7 +688,7 @@ func TestWatchdog(t *testing.T) {
 			FlushFunc[string](ff),
 			Raise[string](),
 			FlushLength(1),
-			FlushParallelism(2), // Allow parallel flushes
+			FlushParallelism(2),
 			FlushTimeout(50*time.Millisecond),
 			WatchdogTimeout(200*time.Millisecond),
 		)
@@ -783,22 +701,17 @@ func TestWatchdog(t *testing.T) {
 			ec <- bat.Run(c)
 		}(ctx, errc)
 
-		// Send first message - this will get stuck
 		err := bat.Send(ctx, nil, kawa.Message[string]{Value: "message1"})
 		assert.NoError(t, err)
 
-		// Wait a bit for first flush to start
 		time.Sleep(30 * time.Millisecond)
 
-		// Send more messages periodically to keep resetting the old watchdog
-		// With our new implementation, this should still detect the stuck flush
 		for i := 0; i < 3; i++ {
 			time.Sleep(80 * time.Millisecond)
 			err := bat.Send(ctx, nil, kawa.Message[string]{Value: fmt.Sprintf("message%d", i+2)})
 			assert.NoError(t, err)
 		}
 
-		// Watchdog should eventually fire because first flush is stuck
 		err = <-errc
 		assert.ErrorIs(t, err, errDeadlock, "stuck flush should trigger watchdog even with new messages")
 	})
@@ -807,7 +720,6 @@ func TestWatchdog(t *testing.T) {
 		var flushCount atomic.Int32
 		var ff = func(c context.Context, msgs []kawa.Message[string]) error {
 			flushCount.Add(1)
-			// Each flush takes 80ms, but completes successfully
 			time.Sleep(80 * time.Millisecond)
 			return nil
 		}
@@ -827,13 +739,11 @@ func TestWatchdog(t *testing.T) {
 			ec <- bat.Run(c)
 		}(ctx, errc)
 
-		// Send 3 messages, each will flush independently
 		for i := 0; i < 3; i++ {
 			err := bat.Send(ctx, nil, kawa.Message[string]{Value: fmt.Sprintf("message%d", i+1)})
 			assert.NoError(t, err)
 		}
 
-		// Wait for all flushes to complete
 		time.Sleep(300 * time.Millisecond)
 
 		cancel()

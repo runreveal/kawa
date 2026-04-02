@@ -17,12 +17,12 @@ func NewMultiDestination[T any](dests []kawa.Destination[T]) MultiDestination[T]
 	}
 }
 
-func (md MultiDestination[T]) Send(ctx context.Context, ack func(), msgs ...kawa.Message[T]) error {
+func (md MultiDestination[T]) Send(ctx context.Context, ack func(), msg kawa.Message[T]) error {
 	if ack != nil {
 		ack = ackFn(ack, len(md.wrapped))
 	}
 	for _, d := range md.wrapped {
-		err := d.Send(ctx, ack, msgs...)
+		err := d.Send(ctx, ack, msg)
 		if err != nil {
 			return err
 		}
@@ -30,13 +30,12 @@ func (md MultiDestination[T]) Send(ctx context.Context, ack func(), msgs ...kawa
 	return nil
 }
 
-// only call ack on last message acknowledgement
+// only call ack on last destination acknowledgement
 func ackFn(ack func(), num int) func() {
 	ackChu := make(chan struct{}, num-1)
 	for i := 0; i < num-1; i++ {
 		ackChu <- struct{}{}
 	}
-	// bless you
 	return func() {
 		select {
 		case <-ackChu:

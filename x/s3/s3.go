@@ -99,8 +99,8 @@ func (s *S3) Run(ctx context.Context) error {
 	return s.batcher.Run(ctx)
 }
 
-func (s *S3) Send(ctx context.Context, ack func(), msgs ...kawa.Message[[]byte]) error {
-	return s.batcher.Send(ctx, ack, msgs...)
+func (s *S3) Send(ctx context.Context, ack func(), msg kawa.Message[[]byte]) error {
+	return s.batcher.Send(ctx, ack, msg)
 }
 
 // Flush sends the given messages of type kawa.Message[type.Event] to an s3 bucket

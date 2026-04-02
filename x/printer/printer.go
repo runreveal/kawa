@@ -43,13 +43,9 @@ func NewPrinter(writer io.Writer, opts ...Option) *Printer {
 	return ret
 }
 
-// Send implements [kawa.Destination] by writing each message value followed by the printer's delimiter.
-// A call to Send will call Write at most once on the underlying writer.
-func (p *Printer) Send(ctx context.Context, ack func(), msg ...kawa.Message[[]byte]) error {
-	n := len(p.delim) * len(msg)
-	for _, m := range msg {
-		n += len(m.Value)
-	}
+// Send implements [kawa.Destination] by writing the message value followed by the printer's delimiter.
+func (p *Printer) Send(ctx context.Context, ack func(), msg kawa.Message[[]byte]) error {
+	n := len(msg.Value) + len(p.delim)
 
 	select {
 	case p.mu <- struct{}{}:
@@ -57,10 +53,8 @@ func (p *Printer) Send(ctx context.Context, ack func(), msg ...kawa.Message[[]by
 		return ctx.Err()
 	}
 	p.buf = slices.Grow(p.buf[:0], n)
-	for _, m := range msg {
-		p.buf = append(p.buf, m.Value...)
-		p.buf = append(p.buf, p.delim...)
-	}
+	p.buf = append(p.buf, msg.Value...)
+	p.buf = append(p.buf, p.delim...)
 	_, err := p.writer.Write(p.buf)
 	<-p.mu // Release mutex as soon as possible after Write.
 
