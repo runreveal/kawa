@@ -49,7 +49,7 @@ func TestIO(t *testing.T) {
 		// close the writer to signal the end of the stream
 		// there's no easy way to do this implicitly without making
 		// readers/writers into closers.  Maybe that's worth it?
-		writer.Close()
+		_ = writer.Close()
 	})
 	SuiteTest(t, scansrc, printdst)
 }

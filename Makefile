@@ -33,7 +33,7 @@ lint: $(GOPATH)/bin/golangci-lint
 	golangci-lint run --timeout 5m ./...
 
 $(GOPATH)/bin/golangci-lint:
-	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
+	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
 
 $(GOPATH)/bin/golines:
 	$(GO) install github.com/segmentio/golines@latest
