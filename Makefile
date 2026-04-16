@@ -6,8 +6,6 @@ GOTAGS = testing
 
 GO ?= $(shell which go)
 
-export GOEXPERIMENT=nocoverageredesign
-
 .PHONY: test
 test: compose
 	$(GO) test -vet=off -tags='$(GOTAGS)' $(GOTESTFLAGS) -coverpkg="./..." -coverprofile=.coverprofile ./...
