@@ -528,4 +528,3 @@ func (d *Destination[T]) doflush(ctx context.Context, msgs []kawa.Message[T], ac
 	// Error handler returned an error - propagate it to stop the batcher
 	d.flusherr <- handlerErr
 }
-
