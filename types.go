@@ -155,34 +155,27 @@ func (df DestinationFunc[T]) Send(ctx context.Context, ack func(), msg Message[T
 }
 
 // Handler defines a function which operates on a single event of type T1 and
-// returns a list of events of type T2.  T1 and T2 may be equivalent types.
-// Returning an empty slice and a nil error indicates that the message passed
-// in was processed successfully, no output was necessary, and therefore should
-// be acknowledged by the processor as having been processed successfully.
+// returns a single event of type T2.  T1 and T2 may be equivalent types.
 type Handler[T1, T2 any] interface {
-	Handle(context.Context, Message[T1]) ([]Message[T2], error)
+	Handle(context.Context, Message[T1]) (Message[T2], error)
 }
 
-type HandlerFunc[T1, T2 any] func(context.Context, Message[T1]) ([]Message[T2], error)
+type HandlerFunc[T1, T2 any] func(context.Context, Message[T1]) (Message[T2], error)
 
-func (hf HandlerFunc[T1, T2]) Handle(ctx context.Context, msg Message[T1]) ([]Message[T2], error) {
+func (hf HandlerFunc[T1, T2]) Handle(ctx context.Context, msg Message[T1]) (Message[T2], error) {
 	return hf(ctx, msg)
 }
 
+// Pipe returns a Handler which passes a message through without modification.
 func Pipe[T any]() Handler[T, T] {
 	return pipe[T]{}
 }
 
 type pipe[T any] struct{}
 
-func (p pipe[T]) Handle(ctx context.Context, msg Message[T]) ([]Message[T], error) {
-	return []Message[T]{msg}, nil
+func (p pipe[T]) Handle(ctx context.Context, msg Message[T]) (Message[T], error) {
+	return msg, nil
 }
-
-// // Pipe is a handler which simply passes a message through without modification.
-// func Pipe[T any](ctx context.Context, msg Message[T]) ([]Message[T], error) {
-// 	return []Message[T]{msg}, nil
-// }
 
 type DeserFunc[T any] func([]byte) (T, error)
 
