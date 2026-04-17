@@ -98,21 +98,14 @@ func (p *Processor[T1, T2]) handle(ctx context.Context) error {
 		recvSpan.End()
 
 		hctx, hdlSpan := tracer.Start(ctx, "kawa.processor.handler.handle")
-		msgs, err := p.handler.Handle(hctx, msg)
+		out, err := p.handler.Handle(hctx, msg)
 		if err != nil {
 			return fmt.Errorf("handler: %w", err)
 		}
 		hdlSpan.End()
 
-		// If there are no messages, we don't need to send nil to destination
-		if len(msgs) == 0 {
-			handleSpan.End()
-			Ack(ack)
-			continue
-		}
-
 		sctx, sendSpan := tracer.Start(ctx, "kawa.processor.dst.send")
-		err = p.dst.Send(sctx, ack, msgs...)
+		err = p.dst.Send(sctx, ack, out)
 		if err != nil {
 			return fmt.Errorf("destination: %w", err)
 		}

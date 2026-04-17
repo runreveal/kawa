@@ -184,14 +184,12 @@ func (dest *Destination) Run(ctx context.Context) error {
 	return err
 }
 
-// Send publishes each message in the batch to the configured topic.
-func (dest *Destination) Send(ctx context.Context, ack func(), msgs ...kawa.Message[[]byte]) error {
-	for _, msg := range msgs {
-		token := dest.client.Publish(dest.cfg.topic, dest.cfg.qos, dest.cfg.retained, string(msg.Value))
-		token.Wait()
-		if token.Error() != nil {
-			return token.Error()
-		}
+// Send publishes the message to the configured topic.
+func (dest *Destination) Send(ctx context.Context, ack func(), msg kawa.Message[[]byte]) error {
+	token := dest.client.Publish(dest.cfg.topic, dest.cfg.qos, dest.cfg.retained, string(msg.Value))
+	token.Wait()
+	if token.Error() != nil {
+		return token.Error()
 	}
 	kawa.Ack(ack)
 	return nil

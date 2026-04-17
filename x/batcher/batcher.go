@@ -251,27 +251,17 @@ type msgAck[T any] struct {
 	ack func()
 }
 
-// Send satisfies the kawa.Destination interface and accepts messages to be
+// Send satisfies the kawa.Destination interface and accepts a message to be
 // buffered for flushing after the FlushLength limit is reached or the
 // FlushFrequency timer fires, whichever comes first.
 //
-// Messages will not be acknowledged until they have been flushed successfully.
-func (d *Destination[T]) Send(ctx context.Context, ack func(), msgs ...kawa.Message[T]) error {
-	if len(msgs) < 1 {
-		return nil
+// The message will not be acknowledged until it has been flushed successfully.
+func (d *Destination[T]) Send(ctx context.Context, ack func(), msg kawa.Message[T]) error {
+	select {
+	case d.messages <- msgAck[T]{msg: msg, ack: ack}:
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-
-	callMe := ackFn(ack, len(msgs))
-
-	for _, m := range msgs {
-		select {
-		case d.messages <- msgAck[T]{msg: m, ack: callMe}: // Here
-		case <-ctx.Done():
-			// TODO: one more flush?
-			return ctx.Err()
-		}
-	}
-
 	return nil
 }
 
@@ -537,22 +527,4 @@ func (d *Destination[T]) doflush(ctx context.Context, msgs []kawa.Message[T], ac
 
 	// Error handler returned an error - propagate it to stop the batcher
 	d.flusherr <- handlerErr
-}
-
-// only call ack on last message acknowledgement
-func ackFn(ack func(), num int) func() {
-	ackChu := make(chan struct{}, num-1)
-	for i := 0; i < num-1; i++ {
-		ackChu <- struct{}{}
-	}
-	// bless you
-	return func() {
-		select {
-		case <-ackChu:
-		default:
-			if ack != nil {
-				ack()
-			}
-		}
-	}
 }

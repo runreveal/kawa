@@ -30,8 +30,8 @@ func TestProcessor(t *testing.T) {
 	}
 
 	countMessages := kawa.HandlerFunc[*BinString, *BinString](
-		func(c context.Context, m kawa.Message[*BinString]) ([]kawa.Message[*BinString], error) {
-			return []kawa.Message[*BinString]{m}, nil
+		func(c context.Context, m kawa.Message[*BinString]) (kawa.Message[*BinString], error) {
+			return m, nil
 		})
 
 	p, _ := kawa.New[*BinString, *BinString](kawa.Config[*BinString, *BinString]{

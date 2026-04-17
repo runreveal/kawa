@@ -64,19 +64,24 @@ func TestPrinter(t *testing.T) {
 			p := NewPrinter(buf, options...)
 
 			for i, batch := range test.sends {
-				batchMessages := make([]kawa.Message[[]byte], len(batch))
-				for i, s := range batch {
-					batchMessages[i] = kawa.Message[[]byte]{
-						Value: []byte(s),
+				for j, s := range batch {
+					var ack func()
+					if j == len(batch)-1 {
+						callCount := 0
+						ack = func() { callCount++ }
+						err := p.Send(ctx, ack, kawa.Message[[]byte]{Value: []byte(s)})
+						if err != nil {
+							t.Errorf("Error sending message #%d in batch #%d: %v", j+1, i+1, err)
+						}
+						if callCount != 1 {
+							t.Errorf("ack function called %d times for last message in batch #%d; want 1", callCount, i+1)
+						}
+					} else {
+						err := p.Send(ctx, nil, kawa.Message[[]byte]{Value: []byte(s)})
+						if err != nil {
+							t.Errorf("Error sending message #%d in batch #%d: %v", j+1, i+1, err)
+						}
 					}
-				}
-				callCount := 0
-				err := p.Send(ctx, func() { callCount++ }, batchMessages...)
-				if err != nil {
-					t.Errorf("Error sending batch #%d: %v", i+1, err)
-				}
-				if callCount != 1 {
-					t.Errorf("ack function called %d times during batch #%d; want 1", callCount, i+1)
 				}
 			}
 

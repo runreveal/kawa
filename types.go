@@ -25,8 +25,43 @@ type Message[T any] struct {
 	Attributes Attributes
 }
 
-type Attributes interface {
-	Unwrap() Attributes
+// Attributes is an opaque key-value store inspired by context.Context, but
+// without deadlines, timeouts, or cancellation. It is used to pass metadata
+// from a source implementation through to a consumer.
+//
+// The provided key must be comparable and should not be of type string or any
+// other built-in type to avoid collisions between packages. Users of
+// WithValue should define their own types for keys.
+//
+// The zero value is a valid empty Attributes.
+type Attributes struct {
+	parent *valueAttr
+}
+
+type valueAttr struct {
+	Attributes
+	key, val any
+}
+
+// WithValue returns a new Attributes that carries the given key-value pair
+// in addition to any values already present in the parent.
+func WithValue(parent Attributes, key, val any) Attributes {
+	if key == nil {
+		panic("nil key")
+	}
+	return Attributes{parent: &valueAttr{parent, key, val}}
+}
+
+// Value returns the value associated with this Attributes for key, or nil if
+// no value is associated with key. Successive calls to Value with the same
+// key return the same result.
+func (a Attributes) Value(key any) any {
+	for va := a.parent; va != nil; va = va.parent {
+		if va.key == key {
+			return va.val
+		}
+	}
+	return nil
 }
 
 // Source defines the abstraction for which kawa consumes or receives messages
@@ -85,9 +120,9 @@ func Ack(ack func()) {
 // but anything which is message oriented could be made into a Destination
 // (e.g. a newline-delimited-JSON file could conceivably be a Destination).
 type Destination[T any] interface {
-	// Send sends the passed in messages to the Destination. Implementations
+	// Send sends the passed in message to the Destination. Implementations
 	// _must_ listen on <-ctx.Done() and return ctx.Err() if the context finishes
-	// while waiting to send messages.
+	// while waiting to send the message.
 	//
 	// *Send need not be blocking*.  In the case of a non-blocking call to send,
 	// it's expected that ack will be called _only after_ the message has been
@@ -110,44 +145,37 @@ type Destination[T any] interface {
 	// inside a processor's handler function, then the programmer must decide
 	// themselves how to properly acknowledge the event, and recognize that
 	// destinations will probably be acknowledging the message as well.
-	Send(context.Context, func(), ...Message[T]) error
+	Send(context.Context, func(), Message[T]) error
 }
 
-type DestinationFunc[T any] func(context.Context, func(), ...Message[T]) error
+type DestinationFunc[T any] func(context.Context, func(), Message[T]) error
 
-func (df DestinationFunc[T]) Send(ctx context.Context, ack func(), msgs ...Message[T]) error {
-	return df(ctx, ack, msgs...)
+func (df DestinationFunc[T]) Send(ctx context.Context, ack func(), msg Message[T]) error {
+	return df(ctx, ack, msg)
 }
 
 // Handler defines a function which operates on a single event of type T1 and
-// returns a list of events of type T2.  T1 and T2 may be equivalent types.
-// Returning an empty slice and a nil error indicates that the message passed
-// in was processed successfully, no output was necessary, and therefore should
-// be acknowledged by the processor as having been processed successfully.
+// returns a single event of type T2.  T1 and T2 may be equivalent types.
 type Handler[T1, T2 any] interface {
-	Handle(context.Context, Message[T1]) ([]Message[T2], error)
+	Handle(context.Context, Message[T1]) (Message[T2], error)
 }
 
-type HandlerFunc[T1, T2 any] func(context.Context, Message[T1]) ([]Message[T2], error)
+type HandlerFunc[T1, T2 any] func(context.Context, Message[T1]) (Message[T2], error)
 
-func (hf HandlerFunc[T1, T2]) Handle(ctx context.Context, msg Message[T1]) ([]Message[T2], error) {
+func (hf HandlerFunc[T1, T2]) Handle(ctx context.Context, msg Message[T1]) (Message[T2], error) {
 	return hf(ctx, msg)
 }
 
+// Pipe returns a Handler which passes a message through without modification.
 func Pipe[T any]() Handler[T, T] {
 	return pipe[T]{}
 }
 
 type pipe[T any] struct{}
 
-func (p pipe[T]) Handle(ctx context.Context, msg Message[T]) ([]Message[T], error) {
-	return []Message[T]{msg}, nil
+func (p pipe[T]) Handle(ctx context.Context, msg Message[T]) (Message[T], error) {
+	return msg, nil
 }
-
-// // Pipe is a handler which simply passes a message through without modification.
-// func Pipe[T any](ctx context.Context, msg Message[T]) ([]Message[T], error) {
-// 	return []Message[T]{msg}, nil
-// }
 
 type DeserFunc[T any] func([]byte) (T, error)
 
