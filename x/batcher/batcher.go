@@ -76,6 +76,7 @@ type Destination[T any] struct {
 
 	messages chan msgAck[T]
 	buf      []msgAck[T]
+	done     chan struct{}
 
 	count   int
 	running bool
@@ -241,6 +242,7 @@ func NewDestination[T any](f Flusher[T], e ErrorHandler[T], opts ...OptFunc) *De
 		isRetryable:       cfg.IsRetryable,
 
 		messages: make(chan msgAck[T]),
+		done:     make(chan struct{}),
 	}
 
 	return d
@@ -251,6 +253,8 @@ type msgAck[T any] struct {
 	ack func()
 }
 
+var ErrNotRunning = errors.New("batcher: not running")
+
 // Send satisfies the kawa.Destination interface and accepts a message to be
 // buffered for flushing after the FlushLength limit is reached or the
 // FlushFrequency timer fires, whichever comes first.
@@ -259,6 +263,8 @@ type msgAck[T any] struct {
 func (d *Destination[T]) Send(ctx context.Context, ack func(), msg kawa.Message[T]) error {
 	select {
 	case d.messages <- msgAck[T]{msg: msg, ack: ack}:
+	case <-d.done:
+		return ErrNotRunning
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -271,6 +277,8 @@ func (d *Destination[T]) Send(ctx context.Context, ack func(), msg kawa.Message[
 // Upon cancellation, Run will flush any remaining messages in the buffer and
 // return any flush errors that occur
 func (d *Destination[T]) Run(ctx context.Context) error {
+	defer close(d.done)
+
 	var epoch uint64
 	epochC := make(chan uint64)
 	setTimer := true
@@ -334,7 +342,10 @@ loop:
 				// copy the epoch to send on the chan after the timer fires
 				epc := epoch
 				time.AfterFunc(d.flushfreq, func() {
-					epochC <- epc // Here
+					select {
+					case epochC <- epc:
+					case <-d.done:
+					}
 				})
 
 				if wdTimer != nil {

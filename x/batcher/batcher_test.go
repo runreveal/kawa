@@ -752,3 +752,90 @@ func TestWatchdog(t *testing.T) {
 		assert.Equal(t, int32(3), flushCount.Load(), "should have completed 3 flushes")
 	})
 }
+
+func TestSendReturnsAfterRunExits(t *testing.T) {
+	// When Run's context is canceled but the caller's Send context is still
+	// alive, Send should return ErrNotRunning instead of blocking forever.
+
+	slowFlush := func(ctx context.Context, msgs []kawa.Message[string]) error {
+		select {
+		case <-time.After(5 * time.Second):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return nil
+	}
+
+	bat := NewDestination[string](
+		FlushFunc[string](slowFlush),
+		Raise[string](),
+		FlushLength(100),
+		FlushFrequency(10*time.Second),
+	)
+
+	runCtx, runCancel := context.WithCancel(context.Background())
+
+	// Use a separate context for Send to simulate callers whose lifecycle
+	// outlives the batcher (e.g. a long-lived processor goroutine).
+	sendCtx, sendCancel := context.WithCancel(context.Background())
+	defer sendCancel()
+
+	runErr := make(chan error, 1)
+	go func() {
+		runErr <- bat.Run(runCtx)
+	}()
+
+	err := bat.Send(sendCtx, nil, kawa.Message[string]{Value: "msg1"})
+	assert.NoError(t, err)
+
+	runCancel()
+	<-runErr
+
+	// Now Send should return ErrNotRunning promptly, not block forever
+	sendDone := make(chan error, 1)
+	go func() {
+		sendDone <- bat.Send(sendCtx, nil, kawa.Message[string]{Value: "msg2"})
+	}()
+
+	select {
+	case err := <-sendDone:
+		assert.ErrorIs(t, err, ErrNotRunning)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Send blocked after Run exited — done channel fix not working")
+	}
+}
+
+func TestTimerGoroutineCleanup(t *testing.T) {
+	// Verify that timer goroutines don't leak when Run exits before the
+	// flush timer fires.
+
+	bat := NewDestination[string](
+		FlushFunc[string](func(_ context.Context, msgs []kawa.Message[string]) error {
+			return nil
+		}),
+		Raise[string](),
+		FlushLength(1000),
+		FlushFrequency(50*time.Millisecond),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	runErr := make(chan error, 1)
+	go func() {
+		runErr <- bat.Run(ctx)
+	}()
+
+	err := bat.Send(ctx, nil, kawa.Message[string]{Value: "trigger"})
+	assert.NoError(t, err)
+
+	// Cancel before the flush timer fires
+	cancel()
+	<-runErr
+
+	// Wait for any pending timer callbacks to fire and resolve
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify Send returns immediately instead of blocking on a dead batcher.
+	sendErr := bat.Send(context.Background(), nil, kawa.Message[string]{Value: "after"})
+	assert.ErrorIs(t, sendErr, ErrNotRunning)
+}
